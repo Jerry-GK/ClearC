@@ -1,0 +1,25 @@
+********************  IR  ********************
+; ModuleID = 'main'
+source_filename = "main"
+
+declare i32 @printf(i8*, ...)
+
+define void @main() {
+entry:
+  %p = alloca i32*, align 8
+  %a2 = alloca [10 x i32], align 4
+  %a1 = alloca [10 x i32], align 4
+  %x = alloca i32, align 4
+  store i32 1, i32* %x, align 4
+  store i32* %x, i32** %p, align 8
+  store i32* null, i32** %p, align 8
+  %0 = load i32*, i32** %p, align 8
+  store i32 2, i32* %x, align 4
+  %1 = load i32, i32* %x, align 4
+  %2 = bitcast [10 x i32]* %a1 to i32*
+  store i32* %2, i32** %p, align 8
+  %3 = load i32*, i32** %p, align 8
+  ret void
+}
+*****************  Verification  *****************
+No errors.

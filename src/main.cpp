@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include "ast.hpp"
+#include "codegen.hpp"
 
 using namespace std;
 
@@ -25,27 +26,60 @@ void GenHTML(std::string FileName, ast::Program& Root) {
 }
 
 int main(int argc, const char* argv[]) {
+    printMsg("[ClearC --Version1.0]");
+
     if (argc != 3) {
-        printMsg("<Usage>: " + string(argv[0]) + " <sourcefilename> <objectfilename>");
+        printMsg("[Command Error]: Usage: " + string(argv[0]) + " <sourcefilename> <objectfilename>");
         return 1;
     }
 
     string InputFile = argv[1];
+    string VisualizationFile = InputFile + "_AST.html";	bool GenVisual = true;
+    string LLVMIRCodeFile = InputFile + "_IR.html";	bool GenIR = true;
     string OutputObjectFile = argv[2];
-    string LLVMIRCodeFile;	bool GenIR = false;
-    string VisualizationFile = InputFile + ".html";	bool GenVisual = true;
+    string OptimizeLevel = "";
 
-    freopen(InputFile.c_str(), "r", stdin); //read file into stdin
+    if (!freopen(InputFile.c_str(), "r", stdin)) { //read file into stdin
+        printMsg("[File Error]: Cannot open " + InputFile);
+        return 1;
+    }
+
+    printMsg("[Success]: Compiling \"" + InputFile + "\" ...");
 
     yyparse(); //parse the input file read into stdin, and generate ast
+
+    printMsg("[Success]: Parse successfully");
 
     if (GenVisual) {
         GenHTML(VisualizationFile, *Root);
     }
 
-    // CodeGenerator Gen;
+    //Root is now the root of the ast
 
-    // Gen.GenerateCode(*Root, OptimizeLevel);
+    CodeGenerator Gen;
 
-    // Gen.GenObjectCode(OutputObjectFile);
+    try {
+        Gen.GenerateIRCode(*Root, OptimizeLevel);
+    }
+    catch (const std::exception& e) {
+        printMsg("[Semantic Error]: " + string(e.what()));
+        return 1;
+    }
+    printMsg("[Success]: IR code generated successfully");
+
+    if (GenIR) {
+        Gen.OutputIR(LLVMIRCodeFile);
+        printMsg("[Success]: IR code output successfully");
+    }
+
+    try {
+        Gen.GenObjectCode(OutputObjectFile);
+    }
+    catch (const std::exception& e) {
+        printMsg("[Codegen Error]: " + string(e.what()));
+        return 1;
+    }
+    printMsg("[Success]: Object code generated successfully");
+
+    return 0;
 }

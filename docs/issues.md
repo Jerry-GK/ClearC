@@ -1,0 +1,3 @@
+- 编译器采用的是llvm tutoriol中给ast的节点类加上codegen方法的模式，然后在root上调用codegen可以递归生成整个IR。虽然这样简单，但这种模式极大增加了模块耦合程度。
+
+    理想的方法应该是ast模块只提供一棵语法树，由CodeGenerator模块全面负责语法树转化为IR的过程。

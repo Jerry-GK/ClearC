@@ -8,7 +8,7 @@
 
 void yyerror(char *s) {
     extern int yylineno;
-    std::printf("<Parse Error>: %s at line %d\n", s, yylineno);
+    std::printf("[Syntax Error]: %s at line %d\n", s, yylineno);
 	std::exit(1); 
 }
 
