@@ -24,6 +24,17 @@ llvm::Value* Cast2I1(llvm::Value* Value) {
 	}
 }
 
+std::string GetTypeStr(llvm::Type* Type) {
+	if (Type == NULL) return "";
+	//Type = Type->getNonOpaquePointerElementType();
+	if (Type->isIntegerTy()) return "int";
+	if (Type->isFloatingPointTy()) return "float";
+	if (Type->isPointerTy()) return "pointer";
+	if (Type->isArrayTy()) return "array";
+	if (Type->isStructTy()) return "struct";
+	return "unknown";
+}
+
 //Type casting
 //Supported:
 //1. Int -> Int, FP, Pointer
@@ -60,6 +71,8 @@ llvm::Value* TypeCasting(llvm::Value* Value, llvm::Type* Type) {
 		return IRBuilder.CreatePointerCast(Value, Type);
 	}
 	else {
+		//error msg
+		throw std::logic_error("Type cast not allowed: " + GetTypeStr(Type) + " <- " + GetTypeStr(Value->getType()));
 		return NULL;
 	}
 }
@@ -387,6 +400,12 @@ llvm::Value* CreateBitwiseXOR(llvm::Value* LHS, llvm::Value* RHS, CodeGenerator&
 //8. Exactly the same type assignment
 //The "pLHS" argument should be a pointer pointing to the variable (the left-value in C)
 llvm::Value* CreateAssignment(llvm::Value* pLHS, llvm::Value* RHS, CodeGenerator& Generator) {
+	if (pLHS->getType()->getNonOpaquePointerElementType()->isArrayTy())
+	{
+		throw std::domain_error("Array type (const ptr) cannot be assigned.");
+		return NULL;
+	}
+
 	RHS = TypeCasting(RHS, pLHS->getType()->getNonOpaquePointerElementType());
 	if (RHS == NULL) {
 		throw std::domain_error("Assignment with values that cannot be cast to the target type.");

@@ -29,6 +29,8 @@ To be finished.
 
 3. Array:
 
+   array in ClearC has very limited functionality.
+
    array<`type`, `size`> name; is the legal declaration for an array. Array is regarded as a type as well, which is const ptr<`type`>.
 
    ```c
@@ -36,6 +38,39 @@ To be finished.
    array<ptr<int>, 5> arrp;
    arrp[0][0] = 2;
    ```
+
+   Array is viewed as const ptr<>, with fixed head address assigned during initialization. 
+
+   **We do NOT provide initialiazation method for array!** You have to assign it one by one.
+
+   ```c
+   array<char, 10> str = "hello"; //illegal
+   array<int, 13> ints = {1, 2, 3}; //illegal
+   ```
+
+   Array can assign to pointers, but cannot be assigned, since it's "const".
+
+   ```c
+   array<char, 10> str =;
+   array<char, 10> str1;
+   ptr<char> ps = str; //legal
+   str = ps; //illegal
+   str = str1; //illegal
+   array<char, 10> str2 = ps; //illegal
+   ```
+
+   Array type can not be the function return type, since we don't want any array to accept the return value.
+
+   Array type can neither be passed as function arguments, since it cannot be initialized.
+
+   ```c
+   func getArr() -> array<int, 10>; //illegal
+   func printArr(array<char, 10>) -> void; //legal
+   ```
+
+   If you want to use array more  flexibly, we recommend to use pointers.
+
+   
 
 4. Function
 

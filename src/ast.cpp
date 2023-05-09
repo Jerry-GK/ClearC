@@ -26,10 +26,12 @@ namespace ast {
             //Check if it is a "void" type
             if (LLVMType->isVoidTy())
                 isVoidArgs = true;
-            //In C, when the function argument type is an array type, we don't pass the entire array.
-            //Instead, we just pass a pointer pointing to its elements
+            //not allow to use array type as function argument
             if (LLVMType->isArrayTy())
-                LLVMType = LLVMType->getArrayElementType()->getPointerTo();
+            {
+                throw std::logic_error("Define a function " + this->_Name + " with array type argument, which is not allowed.");
+                return NULL;
+            }
             ArgTypes.push_back(LLVMType);
         }
         //Throw an exception if #args >= 2 and the function has a "void" argument.
@@ -148,6 +150,7 @@ namespace ast {
             throw std::logic_error("Cannot define \"void\" variables.");
             return NULL;
         }
+
         //Create variables one by one.
         for (auto& NewVar : *(this->_VarList)) {
             //Determine whether the declaration is inside a function.
@@ -163,9 +166,14 @@ namespace ast {
                 }
                 //Assign the initial value by "store" instruction.
                 if (NewVar->_InitialExpr) {
-                    llvm::Value* Initializer = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType);
+                    if (VarType->isArrayTy()) {
+                        throw std::logic_error("Initialize array variable \"" + NewVar->_Name + "\", which is not allowed.");
+                        return NULL;
+                    }
+                    llvm::Value* Initializer = NULL;
+                    Initializer = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType);
                     if (Initializer == NULL) {
-                        throw std::logic_error("Initialize variable " + NewVar->_Name + " with value of conflict type.");
+                        throw std::logic_error("Initialize variable \"" + NewVar->_Name + "\" with value of conflict type.");
                         return NULL;
                     }
                     IRBuilder.CreateStore(Initializer, Alloca);
@@ -179,6 +187,10 @@ namespace ast {
                 //Create the constant initializer
                 llvm::Constant* Initializer = NULL;
                 if (NewVar->_InitialExpr) {
+                    if (VarType->isArrayTy()) {
+                        throw std::logic_error("Initialize array variable \"" + NewVar->_Name + "\", which is not allowed.");
+                        return NULL;
+                    }
                     //Global variable must be initialized (if any) by a constant.
 
                     //save the insertion point
@@ -565,6 +577,7 @@ namespace ast {
             }
             IRBuilder.CreateRet(RetVal);
         }
+        return NULL;
     }
 
     //Subscript, e.g. a[10], b[2][3]
