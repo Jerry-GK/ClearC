@@ -1,25 +1,40 @@
-********************  IR  ********************
+******************* IR Code ********************
 ; ModuleID = 'main'
 source_filename = "main"
 
+%struct.Teacher = type { [10 x i8] }
+%struct.Student = type { [10 x i8] }
+
+@y = global i32 3
+@x = global i32 2
+@a = global i32 1
+@0 = private unnamed_addr constant [5 x i8] c"x=%d\00", align 1
+@1 = private unnamed_addr constant [5 x i8] c"y=%d\00", align 1
+@2 = private unnamed_addr constant [5 x i8] c"a=%d\00", align 1
+
 declare i32 @printf(i8*, ...)
+
+define i32 @plus(i32 %0) {
+entry:
+%a = alloca i32, align 4
+store i32 %0, i32* %a, align 4
+%1 = load i32, i32* %a, align 4
+%2 = add i32 %1, 1
+ret i32 %2
+}
 
 define void @main() {
 entry:
-  %p = alloca i32*, align 8
-  %a2 = alloca [10 x i32], align 4
-  %a1 = alloca [10 x i32], align 4
-  %x = alloca i32, align 4
-  store i32 1, i32* %x, align 4
-  store i32* %x, i32** %p, align 8
-  store i32* null, i32** %p, align 8
-  %0 = load i32*, i32** %p, align 8
-  store i32 2, i32* %x, align 4
-  %1 = load i32, i32* %x, align 4
-  %2 = bitcast [10 x i32]* %a1 to i32*
-  store i32* %2, i32** %p, align 8
-  %3 = load i32*, i32** %p, align 8
-  ret void
+%t = alloca %struct.Teacher, align 8
+%s = alloca %struct.Student, align 8
+%0 = load i32, i32* @x, align 4
+%1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @0, i32 0, i32 0), i32 %0)
+%2 = load i32, i32* @y, align 4
+%3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @1, i32 0, i32 0), i32 %2)
+%4 = load i32, i32* @a, align 4
+%5 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @2, i32 0, i32 0), i32 %4)
+ret void
 }
-*****************  Verification  *****************
-No errors.
+
+***************** Verification *****************
+No IR error.

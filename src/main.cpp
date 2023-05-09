@@ -62,14 +62,24 @@ int main(int argc, const char* argv[]) {
         Gen.GenerateIRCode(*Root, OptimizeLevel);
     }
     catch (const std::exception& e) {
+        string bar = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+        printMsg("\n" + bar);
         printMsg("[Semantic Error]: " + string(e.what()));
+        printMsg(bar + "\n");
         return 1;
     }
     printMsg("[Success]: IR code generated successfully");
 
+
+    //generate and verify IR
+    bool IRValid = true;
     if (GenIR) {
-        Gen.OutputIR(LLVMIRCodeFile);
+        IRValid = Gen.OutputIR(LLVMIRCodeFile);
         printMsg("[Success]: IR code output successfully");
+    }
+    if (!IRValid) {
+        printMsg("[IR Error]: Look at the IR code for details");
+        return 1;
     }
 
     try {

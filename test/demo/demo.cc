@@ -1,24 +1,32 @@
 func printf(ptr<char>, ...) -> int;
 // int scanf(char ptr, ...);
-typedef Point struct {
-    int x;
-    int y;
+
+
+func plus(int a) -> int {
+    return a + 1;
+}
+
+int y = 3;
+
+typedef Student struct {
+    array<char, 10> name;
 };
 
+
+int x = 2;
+
+typedef Teacher struct {
+    array<char, 10> name;
+};
+int a = 1;
+//int b = a;
+
 func main() -> void {
-    const int x = 1;
-    array<int, 10> a1;
-    array<int, 10> a2;
+    Student s;
+    Teacher t;
 
-    const ptr<int> p = addr(x);
-    p = null;
-
-    x= 2;
-
-    //ptr<const int> pc;
-
-    p = a1;
-
-
+    printf("x=%d", x);
+    printf("y=%d", y);
+    printf("a=%d", a);
     return;
 }

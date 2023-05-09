@@ -458,9 +458,9 @@ namespace ast {
         //Branch condition, then-clause and else-clause
         Expr* _Condition;
         Block* _Then;
-        Stmt* _Else;
+        Block* _Else;
 
-        IfStmt(Expr* __Condition, Block* __Then, Stmt* __Else = NULL) : _Condition(__Condition), _Then(__Then), _Else(__Else) {}
+        IfStmt(Expr* __Condition, Block* __Then, Block* __Else = NULL) : _Condition(__Condition), _Then(__Then), _Else(__Else) {}
         ~IfStmt(void) {}
         llvm::Value* codegen(CodeGenerator& Gen);
         std::string astJson();

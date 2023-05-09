@@ -12,6 +12,6 @@ cd ..
 
 ./test/bin/${demoFileName}.out
 
-rm ./test/basic/*.html
+#rm ./test/basic/*.html
 rm ./test/bin/obj
 rm ./test/bin/${demoFileName}.out

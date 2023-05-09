@@ -239,7 +239,7 @@ Stmt:		Expr SEMI												{  $$ = $1;   }
 			| SEMI													{  $$ = NULL;   }
 			;
 
-IfStmt:		IF Expr Block ELSE Stmt					{  $$ = new ast::IfStmt($2,$3,$5);   }
+IfStmt:		IF Expr Block ELSE Block					{  $$ = new ast::IfStmt($2,$3,$5);   }
 			| IF Expr Block         					{  $$ = new ast::IfStmt($2,$3);   }
 			;
 

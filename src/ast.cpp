@@ -51,7 +51,16 @@ namespace ast {
         llvm::FunctionType* FuncType = llvm::FunctionType::get(RetType, ArgTypes, this->_ArgList->_VarArg);
         //Create function
         llvm::Function* Func = llvm::Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage, this->_Name, Gen.Module);
-        Gen.AddFunction(this->_Name, Func);
+        auto ret = Gen.AddFunction(this->_Name, Func);
+        if (ret == ADDFUNC_NAMECONFLICT) {
+            throw std::logic_error("Naming conflict for function: " + this->_Name);
+            return NULL;
+        }
+        else if (ret == ADDFUNC_ERROR) {
+            //unexpected error
+            throw std::logic_error("Unexpected error when adding function: " + this->_Name);
+            return NULL;
+        }
 
         //function has been declared or defined
         if (Func->getName() != this->_Name) {
@@ -74,6 +83,7 @@ namespace ast {
                 throw std::logic_error("Define function \"" + this->_Name + "\" which has conflict arg types with the previous declaration.");
                 return NULL;
             }
+            //(declare and) define a function which has been declared is allowed, ignore the second declaration
         }
 
         //If this function has a body, generate its body's code.
@@ -90,7 +100,11 @@ namespace ast {
                 //Assign the value by "store" instruction
                 IRBuilder.CreateStore(ArgIter, Alloca);
                 //Add to the symbol table
-                Gen.AddVariable(this->_ArgList->at(Index)->_Name, Alloca);
+                if (!Gen.AddVariable(this->_ArgList->at(Index)->_Name, Alloca))
+                {
+                    throw std::logic_error("Naming conflict or redefinition for local variable: " + this->_ArgList->at(Index)->_Name + "in the args list of function " + this->_Name);
+                    return NULL;
+                }
             }
             //Generate code of the function body
             Gen.SetCurFunction(Func);
@@ -143,7 +157,7 @@ namespace ast {
                 //Create an alloca.
                 auto Alloca = CreateEntryBlockAlloca(Gen.GetCurrentFunction(), NewVar->_Name, VarType);
                 if (!Gen.AddVariable(NewVar->_Name, Alloca)) {
-                    throw std::logic_error("Redefine local variable " + NewVar->_Name + ".");
+                    throw std::logic_error("Naming conflict or redefinition for local variable: " + NewVar->_Name);
                     Alloca->eraseFromParent();
                     return NULL;
                 }
@@ -166,10 +180,14 @@ namespace ast {
                 llvm::Constant* Initializer = NULL;
                 if (NewVar->_InitialExpr) {
                     //Global variable must be initialized (if any) by a constant.
-                    Gen.ExchangeInsertPointWithTmpBB();
-                    auto TmpBBSize = IRBuilder.GetInsertBlock()->size();
+
+                    //save the insertion point
+                    llvm::BasicBlock* SaveBB = IRBuilder.GetInsertBlock();
+                    IRBuilder.SetInsertPoint(Gen.GetEmptyBB());
+
                     llvm::Value* InitialExpr = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType);
-                    if (IRBuilder.GetInsertBlock()->size() != TmpBBSize) {
+                    //EmptyBB is used for detect whether the initial value is a constant!
+                    if (IRBuilder.GetInsertBlock()->size() != 0) {
                         throw std::logic_error("Initialize global variable " + NewVar->_Name + " with non-constant value.");
                         return NULL;
                     }
@@ -177,7 +195,9 @@ namespace ast {
                         throw std::logic_error("Initialize variable " + NewVar->_Name + " with value of conflict type.");
                         return NULL;
                     }
-                    Gen.ExchangeInsertPointWithTmpBB();
+
+                    //retore the insertion point
+                    IRBuilder.SetInsertPoint(SaveBB);
                     Initializer = (llvm::Constant*)InitialExpr;
                 }
                 else {
@@ -195,7 +215,7 @@ namespace ast {
                     NewVar->_Name
                 );
                 if (!Gen.AddVariable(NewVar->_Name, Alloca)) {
-                    throw std::logic_error("Redefine global variable " + NewVar->_Name + ".");
+                    throw std::logic_error("Naming conflict or redefinition for global variable: " + NewVar->_Name);
                     Alloca->eraseFromParent();
                     return NULL;
                 }
@@ -219,7 +239,7 @@ namespace ast {
             return NULL;
         }
         if (!Gen.AddType(this->_Alias, LLVMType))
-            throw std::logic_error("Redefine typename " + this->_Alias);
+            throw std::logic_error("Naming conflict or redefinition for type: " + this->_Alias);
         //For struct or union types, we need to generate its body
         if (this->_VarType->isStructType())
             ((ast::StructType*)this->_VarType)->GenerateLLVMTypeBody(Gen);
@@ -1445,20 +1465,13 @@ namespace ast {
     llvm::Value* Variable::codegen(CodeGenerator& Gen) {
         llvm::Value* VarPtr = Gen.FindVariable(this->_Name);
         if (VarPtr) return CreateLoad(VarPtr, Gen);
-        VarPtr = Gen.FindConstant(this->_Name);
-        if (VarPtr) return VarPtr;
-        throw std::logic_error("Identifier \"" + this->_Name + "\" is neither a variable nor a constant.");
+        throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable.");
         return NULL;
     }
     llvm::Value* Variable::codegenPtr(CodeGenerator& Gen) {
         llvm::Value* VarPtr = Gen.FindVariable(this->_Name);
         if (VarPtr) return VarPtr;
-        VarPtr = Gen.FindConstant(this->_Name);
-        if (VarPtr) {
-            throw std::logic_error("\"" + this->_Name + "\" is an immutable constant, not a left-value.");
-            return NULL;
-        }
-        throw std::logic_error("Identifier \"" + this->_Name + "\" is neither a variable nor a constant.");
+        throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable");
         return NULL;
     }
 

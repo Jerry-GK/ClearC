@@ -116,45 +116,7 @@ To be finished.
 
    **`static` is abandoned in ClearC.**
 
-8. OOP (to do)
-
-   We want to make the OOP style like golang.
-
-   - Should the struct pointer be anonymous?
-   - Should we use `class A{}` to represent `typedef struct{} A`?
-
-   ```c
-   typedef Student struct {
-     int id;
-     array<char, 10> name;
-   };
-   
-   func Student::SetName(array<char, 10> name) -> void {
-   	Student.name = name; 
-   }
-   //func Student::SetName(ptr<Student> anonymous, array<char, 10> name) -> void {
-   	//anonymous->name = name;
-   //}
-   
-   func Student::GetId() -> int {
-   	return Student.id;
-   }
-   //func Student::GetId(ptr<Student> anonymous) -> int {
-   	//return anonymous->id;
-   //}
-   
-    Student s;
-    s.SetName("Duck");
-   
-    ptr<Student> ps = addr(s);
-    int sid = ps->GetId();
-   ```
-
-9. String (to do)
-
-   Should we make **string** a primitive data type? Maybe not.
-
-10. Control Grammar
+8. Control Grammar
 
    In `if, for, switch`, condition does NOT need to be in `()`, but the body code must be in `{}`
 
@@ -194,7 +156,65 @@ To be finished.
    }
    ```
 
-11. Function Declaration (To do)
+9. naming
+
+   For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+
+   In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. Functions, types and variables can NOT have the same name with each other, otherwise will raise **naming conflict error**.
+
+   ```c
+   //naming conflict for identifier "Student"
+   int Student; //variable
+   typedef Student struct{}; //type
+   func Student() -> void; //function
+   
+   func f() -> void{
+     int Student; //this will NOT cause naming conflict
+     return;
+   }
+   ```
+
+   
+
+10. OOP (to do)
+
+   We want to make the OOP style like golang.
+
+   - Should the struct pointer be anonymous?
+   - Should we use `class A{}` to represent `typedef struct{} A`?
+
+   ```c
+   typedef Student struct {
+     int id;
+     array<char, 10> name;
+   };
+   
+   func Student::SetName(array<char, 10> name) -> void {
+   	Student.name = name; 
+   }
+   //func Student::SetName(ptr<Student> anonymous, array<char, 10> name) -> void {
+   	//anonymous->name = name;
+   //}
+   
+   func Student::GetId() -> int {
+   	return Student.id;
+   }
+   //func Student::GetId(ptr<Student> anonymous) -> int {
+   	//return anonymous->id;
+   //}
+   
+    Student s;
+    s.SetName("Duck");
+   
+    ptr<Student> ps = addr(s);
+    int sid = ps->GetId();
+   ```
+
+11. String (to do)
+
+    Should we make **string** a primitive data type? Maybe not.
+
+12. Function Declaration (To do)
 
     We think function declarations is redundant and unnecessary, so we want to elimate them.
 

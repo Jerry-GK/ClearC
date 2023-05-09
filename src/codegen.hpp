@@ -53,6 +53,13 @@ extern llvm::LLVMContext Context;
 //has methods to create new instructions.
 extern llvm::IRBuilder<> IRBuilder;
 
+//return type for AddFunction()
+enum AddFunctionReseult {
+    ADDFUNC_SUCCESS, //Success
+    ADDFUNC_DECLARED, //Already declared
+    ADDFUNC_NAMECONFLICT, //Name conflict with variable or type
+    ADDFUNC_ERROR //Other errors
+};
 
 class CodeGenerator {
 public:
@@ -73,8 +80,7 @@ public:
     llvm::Function* FindFunction(std::string Name);
 
     //Add a function to the current symbol table
-    //If an old value exists (i.e., conflict), return false
-    bool AddFunction(std::string Name, llvm::Function* Function);
+    AddFunctionReseult AddFunction(std::string Name, llvm::Function* Function);
 
     //Find the llvm::Type* instance for the given name
     llvm::Type* FindType(std::string Name);
@@ -89,13 +95,6 @@ public:
     //Add a variable to the current symbol table
     //If an old value exists (i.e., conflict), return false
     bool AddVariable(std::string Name, llvm::Value* Variable);
-
-    //Find constant
-    llvm::Value* FindConstant(std::string Name);
-
-    //Add a constant to the current symbol table
-    //If an old value exists (i.e., conflict), return false
-    bool AddConstant(std::string Name, llvm::Value* Constant);
 
     //Find the ast::StructType* instance according to the llvm::StructType* instance
     ast::StructType* FindStructType(llvm::StructType* Ty1);
@@ -121,14 +120,14 @@ public:
     //Get the destination block for "break" statements
     llvm::BasicBlock* GetBreakBlock(void);
 
-    //Exchange the current insert point with TmpBB
-    void ExchangeInsertPointWithTmpBB(void);
+    llvm::BasicBlock* GetEmptyBB(void);
 
     void GenerateIRCode(ast::Program& Root, const std::string& OptimizeLevel = "");
 
-    void OutputIR(std::string FileName);
+    bool OutputIR(std::string FileName);
 
     void GenObjectCode(std::string FileName);
+
 
 private:
     class Symbol {
@@ -136,18 +135,16 @@ private:
         Symbol(void) : Content(NULL), Type(UNDEFINED) {}
         Symbol(llvm::Function* Func) : Content(Func), Type(FUNCTION) {}
         Symbol(llvm::Type* Ty) : Content(Ty), Type(TYPE) {}
-        Symbol(llvm::Value* Value, bool isConst) : Content(Value), Type(isConst ? CONSTANT : VARIABLE) {}
+        Symbol(llvm::Value* Value) : Content(Value), Type(VARIABLE) {}
         llvm::Function* GetFunction(void) { return this->Type == FUNCTION ? (llvm::Function*)Content : NULL; }
         llvm::Type* GetType(void) { return this->Type == TYPE ? (llvm::Type*)Content : NULL; }
         llvm::Value* GetVariable(void) { return this->Type == VARIABLE ? (llvm::Value*)Content : NULL; }
-        llvm::Value* GetConstant(void) { return this->Type == CONSTANT ? (llvm::Value*)Content : NULL; }
     private:
         void* Content;
         enum {
             FUNCTION,
             TYPE,
             VARIABLE,
-            CONSTANT,
             UNDEFINED
         } Type;
     };
@@ -161,6 +158,6 @@ private:
     std::vector<SymbolTable*> SymbolTableStack;			//Symbol table
     std::vector<llvm::BasicBlock*> ContinueBlockStack;	//Store blocks for "continue" statement
     std::vector<llvm::BasicBlock*> BreakBlockStack;		//Store blocks for "break" statement
-    llvm::BasicBlock* TmpBB;							//Temp block for global instruction code generation
-    llvm::Function* TmpFunc;							//Temp function for global instruction code generation
+    llvm::BasicBlock* EmptyBB;                          //Empty block for global variables
+    llvm::Function* EmptyFunc;                          //Empty function for EmptyBB
 };

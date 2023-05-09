@@ -17,8 +17,8 @@ CodeGenerator::CodeGenerator(void) :
     SymbolTableStack(),
     ContinueBlockStack(),
     BreakBlockStack(),
-    TmpBB(NULL),
-    TmpFunc(NULL)
+    EmptyBB(NULL),
+    EmptyFunc(NULL)
 {}
 
 //Sizeof()
@@ -51,14 +51,18 @@ llvm::Function* CodeGenerator::FindFunction(std::string Name) {
 
 //Add a function to the current symbol table
 //If an old value exists (i.e., conflict), return false
-bool CodeGenerator::AddFunction(std::string Name, llvm::Function* Function) {
-    if (this->SymbolTableStack.size() == 0) return false;
+AddFunctionReseult CodeGenerator::AddFunction(std::string Name, llvm::Function* Function) {
+    if (this->SymbolTableStack.size() == 0) return ADDFUNC_ERROR;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
-    if (mapIter != TopTable->end())
-        return false;
+    if (mapIter != TopTable->end()) {
+        if (mapIter->second.GetFunction())
+            return ADDFUNC_DECLARED;
+        else
+            return ADDFUNC_NAMECONFLICT;
+    }
     TopTable->insert({ Name, Symbol(Function) });
-    return true;
+    return ADDFUNC_SUCCESS;
 }
 
 //Find the llvm::Type* instance for the given name
@@ -103,30 +107,7 @@ bool CodeGenerator::AddVariable(std::string Name, llvm::Value* Variable) {
     auto mapIter = TopTable->find(Name);
     if (mapIter != TopTable->end())
         return false;
-    TopTable->insert({ Name, Symbol(Variable, false) });
-    return true;
-}
-
-//Find constant
-llvm::Value* CodeGenerator::FindConstant(std::string Name) {
-    if (this->SymbolTableStack.size() == 0) return NULL;
-    for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
-        auto mapIter = (*TableIter)->find(Name);
-        if (mapIter != (*TableIter)->end())
-            return mapIter->second.GetConstant();
-    }
-    return NULL;
-}
-
-//Add a constant to the current symbol table
-//If an old value exists (i.e., conflict), return false
-bool CodeGenerator::AddConstant(std::string Name, llvm::Value* Constant) {
-    if (this->SymbolTableStack.size() == 0) return false;
-    auto TopTable = this->SymbolTableStack.back();
-    auto mapIter = TopTable->find(Name);
-    if (mapIter != TopTable->end())
-        return false;
-    TopTable->insert({ Name, Symbol(Constant, true) });
+    TopTable->insert({ Name, Symbol(Variable) });
     return true;
 }
 
@@ -186,44 +167,46 @@ llvm::BasicBlock* CodeGenerator::GetBreakBlock(void) {
         return NULL;
 }
 
-//Exchange the current insert point with TmpBB
-void CodeGenerator::ExchangeInsertPointWithTmpBB(void) {
-    auto Tmp = IRBuilder.GetInsertBlock();
-    IRBuilder.SetInsertPoint(this->TmpBB);
-    this->TmpBB = Tmp;
+llvm::BasicBlock* CodeGenerator::GetEmptyBB(void) {
+    return this->EmptyBB;
 }
-
 void CodeGenerator::GenerateIRCode(ast::Program& Root, const std::string& OptimizeLevel) {
     //Initialize symbol table
     this->StructTyTable = new StructTypeTable;
     this->PushSymbolTable();
 
     //Create a temp function and a temp block for global instruction code generation
-    this->TmpFunc = llvm::Function::Create(llvm::FunctionType::get(IRBuilder.getVoidTy(), false), llvm::GlobalValue::InternalLinkage, "0Tmp", this->Module);
-    this->TmpBB = llvm::BasicBlock::Create(Context, "Temp", this->TmpFunc);
+    this->EmptyFunc = llvm::Function::Create(llvm::FunctionType::get(IRBuilder.getVoidTy(), false), llvm::GlobalValue::InternalLinkage, "__EmptyFunc__", this->Module);
+    this->EmptyBB = llvm::BasicBlock::Create(Context, "__EmptyBB__", this->EmptyFunc);
 
     //Generate code
     Root.codegen(*this);
 
-    //Delete TmpBB and TmpFunc
-    this->TmpBB->eraseFromParent();
-    this->TmpFunc->eraseFromParent();
+    //add a terminater for the temp block
+    IRBuilder.SetInsertPoint(this->EmptyBB);
+    //IRBuilder.CreateRetVoid();
+    //Delete
+    this->EmptyBB->eraseFromParent();
+    this->EmptyFunc->eraseFromParent();
 
     //Delete symbol table
     this->PopSymbolTable();
     delete this->StructTyTable; this->StructTyTable = NULL;
 }
 
-void CodeGenerator::OutputIR(std::string FileName) {
+bool CodeGenerator::OutputIR(std::string FileName) {
     std::error_code EC;
     llvm::raw_fd_ostream Out(FileName, EC);
-    Out << "********************  IR  ********************\n";
+    Out << "*******************  IR Code  ********************\n";
     this->Module->print(Out, NULL);
-    Out << "*****************  Verification  *****************\n";
-    if (llvm::verifyModule(*this->Module, &Out) == 0)
-        Out << "No errors.\n";
+    Out << "\n*****************  Verification  *****************\n";
+    if (llvm::verifyModule(*this->Module, &Out) == 0) {
+        Out << "No IR error.\n";
+        return true;
+    }
     else {
-        Out << "Error occurs.\n";
+        Out << "IR Error occurs.\n";
+        return false;
     }
 }
 
