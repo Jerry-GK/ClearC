@@ -89,7 +89,7 @@ bool CodeGenerator::AddType(std::string Name, llvm::Type* Type) {
 }
 
 //Find variable
-llvm::Value* CodeGenerator::FindVariable(std::string Name) {
+ExprValue* CodeGenerator::FindVariable(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
     for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
         auto mapIter = (*TableIter)->find(Name);
@@ -101,13 +101,13 @@ llvm::Value* CodeGenerator::FindVariable(std::string Name) {
 
 //Add a variable to the current symbol table
 //If an old value exists (i.e., conflict), return false
-bool CodeGenerator::AddVariable(std::string Name, llvm::Value* Variable) {
+bool CodeGenerator::AddVariable(std::string Name, ExprValue Variable) {
     if (this->SymbolTableStack.size() == 0) return false;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
     if (mapIter != TopTable->end())
         return false;
-    TopTable->insert({ Name, Symbol(Variable) });
+    TopTable->insert({ Name, Symbol(&Variable) });
     return true;
 }
 

@@ -2,47 +2,18 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-@0 = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
-@1 = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
-@2 = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
-@3 = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
-
 declare i32 @printf(i8*, ...)
-
-define void @printArr(i8* %0) {
-entry:
-  %s = alloca i8*, align 8
-  store i8* %0, i8** %s, align 8
-  %1 = load i8*, i8** %s, align 8
-  %2 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @0, i32 0, i32 0), i8* %1)
-  ret void
-}
-
-define void @printArsr(i8* %0) {
-entry:
-  %s = alloca i8*, align 8
-  store i8* %0, i8** %s, align 8
-  %1 = load i8*, i8** %s, align 8
-  %2 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @1, i32 0, i32 0), i8* %1)
-  ret void
-}
 
 define i32 @main() {
 entry:
-  %s = alloca i8*, align 8
-  %str = alloca [8 x i8], align 1
-  %0 = bitcast [8 x i8]* %str to i8*
-  store i8* %0, i8** %s, align 8
-  %1 = bitcast [8 x i8]* %str to i8*
-  %2 = getelementptr i8, i8* %1, i32 0
-  store i8 112, i8* %2, align 1
-  %3 = load i8, i8* %2, align 1
-  %4 = bitcast [8 x i8]* %str to i8*
-  call void @printArr(i8* %4)
-  %5 = load i8*, i8** %s, align 8
-  %6 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @2, i32 0, i32 0), i8* %5)
-  %7 = bitcast [8 x i8]* %str to i8*
-  %8 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @3, i32 0, i32 0), i8* %7)
+  %pa = alloca i32*, align 8
+  %a = alloca i32, align 4
+  store i32 1, i32* %a, align 4
+  %0 = bitcast i32** %pa to i32*
+  store i32* %0, i32** %pa, align 8
+  %1 = load i32*, i32** %pa, align 8
+  store i32 2, i32* %1, align 4
+  %2 = load i32, i32* %1, align 4
   ret i32 0
 }
 

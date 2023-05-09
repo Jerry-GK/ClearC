@@ -90,11 +90,11 @@ public:
     bool AddType(std::string Name, llvm::Type* Type);
 
     //Find variable
-    llvm::Value* FindVariable(std::string Name);
+    ExprValue* FindVariable(std::string Name);
 
     //Add a variable to the current symbol table
     //If an old value exists (i.e., conflict), return false
-    bool AddVariable(std::string Name, llvm::Value* Variable);
+    bool AddVariable(std::string Name, ExprValue Variable);
 
     //Find the ast::StructType* instance according to the llvm::StructType* instance
     ast::StructType* FindStructType(llvm::StructType* Ty1);
@@ -135,10 +135,10 @@ private:
         Symbol(void) : Content(NULL), Type(UNDEFINED) {}
         Symbol(llvm::Function* Func) : Content(Func), Type(FUNCTION) {}
         Symbol(llvm::Type* Ty) : Content(Ty), Type(TYPE) {}
-        Symbol(llvm::Value* Value) : Content(Value), Type(VARIABLE) {}
+        Symbol(ExprValue* exprVal) : Content(exprVal), Type(VARIABLE) {}
         llvm::Function* GetFunction(void) { return this->Type == FUNCTION ? (llvm::Function*)Content : NULL; }
         llvm::Type* GetType(void) { return this->Type == TYPE ? (llvm::Type*)Content : NULL; }
-        llvm::Value* GetVariable(void) { return this->Type == VARIABLE ? (llvm::Value*)Content : NULL; }
+        ExprValue* GetVariable(void) { return this->Type == VARIABLE ? (ExprValue*)Content : NULL; }
     private:
         void* Content;
         enum {

@@ -138,7 +138,7 @@ To be finished.
 
    ```c
    const varType v = val; //this var cannot be modified
-   ptr<varType> pv = addr(v); //illegal: v may be modified through pv
+   ptr<varType> pv = addr(v); //illegal: v may be modified through pv. addr(v) is type ptr<const varType>
    
    ptr<const varType> pcv = addr(v); //legal
    dptr(pcv）= val_; //illgeal: cannot modify v through pcv
