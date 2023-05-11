@@ -36,13 +36,39 @@ class CodeGenerator;
 
 class ExprValue {
 public:
-    ExprValue(void) : Value(nullptr), Name(""), IsConst(false) {}
-    ExprValue(llvm::Value* _v) : Value(_v), Name(""), IsConst(false) {}
-    ExprValue(llvm::Value* _v, std::string _n, bool _isc) : Value(_v), Name(_n), IsConst(_isc) {}
+    explicit ExprValue(void) :
+        Value(nullptr),
+        Name(""),
+        IsConst(false),
+        IsInnerConstPointer(false),
+        IsPointingToInnerConst(false) {}
+    explicit ExprValue(llvm::Value* _v) :
+        Value(_v),
+        Name(""),
+        IsConst(false),
+        IsInnerConstPointer(false),
+        IsPointingToInnerConst(false) {}
+    explicit ExprValue(llvm::Value* _v, std::string _n, bool _isc, bool _iicp, bool _ipic = false) :
+        Value(_v),
+        Name(_n),
+        IsConst(_isc),
+        IsInnerConstPointer(_iicp),
+        IsPointingToInnerConst(_ipic) {}
+
+    ExprValue(const ExprValue& other) :
+        Value(other.Value),
+        Name(other.Name),
+        IsConst(other.IsConst),
+        IsInnerConstPointer(other.IsInnerConstPointer),
+        IsPointingToInnerConst(other.IsPointingToInnerConst) {}
+
+    ~ExprValue(void) {}
 
     llvm::Value* Value;
     std::string Name;
     bool IsConst;
+    bool IsInnerConstPointer;
+    bool IsPointingToInnerConst;
 };
 
 
@@ -141,6 +167,8 @@ namespace ast {
     class Variable;
     class Constant;
     class GlobalString;
+
+    class MyFunction;
 }
 
 //Class definitions
@@ -163,6 +191,7 @@ namespace ast {
         ~Program(void) {}
         ExprValue codegen(CodeGenerator& Gen);
         std::string astJson();
+        void genHTML(std::string FileName);
     };
 
     //Pure virtual class for statement
@@ -354,6 +383,8 @@ namespace ast {
         bool isPointerType(void) { return true; }
         bool isArrayType(void) { return false; }
         bool isStructType(void) { return false; }
+
+        bool isInnerConst(void) { return _BaseType->_isConst; }
         std::string astJson();
     };
 
@@ -1118,4 +1149,17 @@ namespace ast {
         ExprValue codegenPtr(CodeGenerator& Gen);
         std::string astJson();
     };
+
+
+    // to record ArgList
+    class MyFunction {
+    public:
+        explicit MyFunction(llvm::Function* _f, ArgList* _a) :
+            LLVMFunc(_f),
+            Args(_a) {}
+
+        llvm::Function* LLVMFunc;
+        ArgList* Args;
+    };
+
 }

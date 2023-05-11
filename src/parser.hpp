@@ -90,39 +90,40 @@
      FUNC = 306,
      STRUCT = 307,
      TYPEDEF = 308,
-     CONST = 309,
-     PTR = 310,
-     ARRAY = 311,
-     DPTR = 312,
-     ADDR = 313,
-     IF = 314,
-     ELSE = 315,
-     FOR = 316,
-     SWITCH = 317,
-     CASE = 318,
-     DEFAULT = 319,
-     BREAK = 320,
-     CONTINUE = 321,
-     RETURN = 322,
-     SIZEOF = 323,
-     TRUE = 324,
-     FALSE = 325,
-     NULL_ = 326,
-     BOOL = 327,
-     SHORT = 328,
-     INT = 329,
-     LONG = 330,
-     CHAR = 331,
-     FLOAT = 332,
-     DOUBLE = 333,
-     VOID = 334,
-     INTEGER = 335,
-     IDENTIFIER = 336,
-     REAL = 337,
-     CHARACTER = 338,
-     STRING = 339,
-     FUNC_CALL_ARG_LIST = 340,
-     GEQ = 341
+     TYPECAST = 309,
+     CONST = 310,
+     PTR = 311,
+     ARRAY = 312,
+     DPTR = 313,
+     ADDR = 314,
+     IF = 315,
+     ELSE = 316,
+     FOR = 317,
+     SWITCH = 318,
+     CASE = 319,
+     DEFAULT = 320,
+     BREAK = 321,
+     CONTINUE = 322,
+     RETURN = 323,
+     SIZEOF = 324,
+     TRUE = 325,
+     FALSE = 326,
+     NULL_ = 327,
+     BOOL = 328,
+     SHORT = 329,
+     INT = 330,
+     LONG = 331,
+     CHAR = 332,
+     FLOAT = 333,
+     DOUBLE = 334,
+     VOID = 335,
+     INTEGER = 336,
+     IDENTIFIER = 337,
+     REAL = 338,
+     CHARACTER = 339,
+     STRING = 340,
+     FUNC_CALL_ARG_LIST = 341,
+     GEQ = 342
    };
 #endif
 /* Tokens.  */
@@ -177,46 +178,47 @@
 #define FUNC 306
 #define STRUCT 307
 #define TYPEDEF 308
-#define CONST 309
-#define PTR 310
-#define ARRAY 311
-#define DPTR 312
-#define ADDR 313
-#define IF 314
-#define ELSE 315
-#define FOR 316
-#define SWITCH 317
-#define CASE 318
-#define DEFAULT 319
-#define BREAK 320
-#define CONTINUE 321
-#define RETURN 322
-#define SIZEOF 323
-#define TRUE 324
-#define FALSE 325
-#define NULL_ 326
-#define BOOL 327
-#define SHORT 328
-#define INT 329
-#define LONG 330
-#define CHAR 331
-#define FLOAT 332
-#define DOUBLE 333
-#define VOID 334
-#define INTEGER 335
-#define IDENTIFIER 336
-#define REAL 337
-#define CHARACTER 338
-#define STRING 339
-#define FUNC_CALL_ARG_LIST 340
-#define GEQ 341
+#define TYPECAST 309
+#define CONST 310
+#define PTR 311
+#define ARRAY 312
+#define DPTR 313
+#define ADDR 314
+#define IF 315
+#define ELSE 316
+#define FOR 317
+#define SWITCH 318
+#define CASE 319
+#define DEFAULT 320
+#define BREAK 321
+#define CONTINUE 322
+#define RETURN 323
+#define SIZEOF 324
+#define TRUE 325
+#define FALSE 326
+#define NULL_ 327
+#define BOOL 328
+#define SHORT 329
+#define INT 330
+#define LONG 331
+#define CHAR 332
+#define FLOAT 333
+#define DOUBLE 334
+#define VOID 335
+#define INTEGER 336
+#define IDENTIFIER 337
+#define REAL 338
+#define CHARACTER 339
+#define STRING 340
+#define FUNC_CALL_ARG_LIST 341
+#define GEQ 342
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 22 "Parser.y"
+#line 23 "Parser.y"
 {
     int iVal;
     std::string *sVal;
@@ -255,7 +257,7 @@ typedef union YYSTYPE
 	ast::ExprList* exprList;
 }
 /* Line 1529 of yacc.c.  */
-#line 259 "parser.hpp"
+#line 261 "parser.hpp"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

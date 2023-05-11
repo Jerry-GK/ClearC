@@ -1,5 +1,5 @@
 #include "codegen.hpp"
-#include "util.hpp"
+#include "llvm_util.hpp"
 
 //Namespace containing all classes involved in the construction of Abstract Syntax Tree (ast)
 namespace ast {
@@ -53,7 +53,8 @@ namespace ast {
         llvm::FunctionType* FuncType = llvm::FunctionType::get(RetType, ArgTypes, this->_ArgList->_VarArg);
         //Create function
         llvm::Function* Func = llvm::Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage, this->_Name, Gen.Module);
-        auto ret = Gen.AddFunction(this->_Name, Func);
+        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList);
+        auto ret = Gen.AddFunction(this->_Name, MyFunc); //add function into symbol table
         if (ret == ADDFUNC_NAMECONFLICT) {
             throw std::logic_error("Naming conflict for function: " + this->_Name);
             return ExprValue();
@@ -98,13 +99,20 @@ namespace ast {
             size_t Index = 0;
             for (auto ArgIter = Func->arg_begin(); ArgIter < Func->arg_end(); ArgIter++, Index++) {
                 //Create alloca
+                auto ArgVarType = this->_ArgList->at(Index)->_VarType;
+                bool isInnerConst = false;
+                if (ArgVarType->isPointerType()) {
+                    isInnerConst = ((PointerType*)ArgVarType)->isInnerConst();
+                }
                 auto Alloca = CreateEntryBlockAlloca(Func, this->_ArgList->at(Index)->_Name, ArgTypes[Index]);
+                auto ExprVal = new ExprValue(Alloca, "", ArgVarType->_isConst, isInnerConst);
                 //Assign the value by "store" instruction
                 IRBuilder.CreateStore(ArgIter, Alloca);
                 //Add to the symbol table
-                if (!Gen.AddVariable(this->_ArgList->at(Index)->_Name, ExprValue(Alloca, "", false)))
+                if (!Gen.AddVariable(this->_ArgList->at(Index)->_Name, ExprVal))
                 {
                     throw std::logic_error("Naming conflict or redefinition for local variable: " + this->_ArgList->at(Index)->_Name + "in the args list of function " + this->_Name);
+                    delete ExprVal;
                     return ExprValue();
                 }
             }
@@ -158,10 +166,16 @@ namespace ast {
             //Otherwise, create a global variable.
             if (Gen.GetCurrentFunction()) {
                 //Create an alloca.
+                bool isInnerConst = false;
+                if (this->_VarType->isPointerType()) {
+                    isInnerConst = ((PointerType*)this->_VarType)->isInnerConst();
+                }
                 auto Alloca = CreateEntryBlockAlloca(Gen.GetCurrentFunction(), NewVar->_Name, VarType);
-                if (!Gen.AddVariable(NewVar->_Name, ExprValue(Alloca, "", this->_VarType->_isConst))) {
+                auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst, isInnerConst);
+                if (!Gen.AddVariable(NewVar->_Name, ExprVal)) {
                     throw std::logic_error("Naming conflict or redefinition for local variable: " + NewVar->_Name);
                     Alloca->eraseFromParent();
+                    delete ExprVal;
                     return ExprValue();
                 }
                 //Assign the initial value by "store" instruction.
@@ -171,7 +185,12 @@ namespace ast {
                         return ExprValue();
                     }
                     llvm::Value* Initializer = NULL;
-                    Initializer = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType);
+                    ExprValue InitialExprVal = NewVar->_InitialExpr->codegen(Gen);
+                    if (InitialExprVal.IsInnerConstPointer && !isInnerConst) {
+                        throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer.");
+                        return ExprValue();
+                    }
+                    Initializer = TypeCasting(InitialExprVal, VarType, Gen);
                     if (Initializer == NULL) {
                         throw std::logic_error("Initialize variable \"" + NewVar->_Name + "\" with value of conflict type.");
                         return ExprValue();
@@ -185,6 +204,10 @@ namespace ast {
             else {
                 //create a global variable.
                 //Create the constant initializer
+                bool isInnerConst = false;
+                if (this->_VarType->isPointerType()) {
+                    isInnerConst = ((PointerType*)this->_VarType)->isInnerConst();
+                }
                 llvm::Constant* Initializer = NULL;
                 if (NewVar->_InitialExpr) {
                     if (VarType->isArrayTy()) {
@@ -193,11 +216,17 @@ namespace ast {
                     }
                     //Global variable must be initialized (if any) by a constant.
 
+                    ExprValue InitialExprVal = NewVar->_InitialExpr->codegen(Gen);
+                    if (InitialExprVal.IsInnerConstPointer && !isInnerConst) {
+                        throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer.");
+                        return ExprValue();
+                    }
+
                     //save the insertion point
                     llvm::BasicBlock* SaveBB = IRBuilder.GetInsertBlock();
                     IRBuilder.SetInsertPoint(Gen.GetEmptyBB());
 
-                    llvm::Value* InitialExpr = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType);
+                    llvm::Value* InitialExpr = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType, Gen);
                     //EmptyBB is used for detect whether the initial value is a constant!
                     if (IRBuilder.GetInsertBlock()->size() != 0) {
                         throw std::logic_error("Initialize global variable " + NewVar->_Name + " with non-constant value.");
@@ -226,9 +255,11 @@ namespace ast {
                     Initializer,
                     NewVar->_Name
                 );
-                if (!Gen.AddVariable(NewVar->_Name, ExprValue(Alloca, "", this->_VarType->_isConst))) {
+                auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst, isInnerConst);
+                if (!Gen.AddVariable(NewVar->_Name, ExprVal)) {
                     throw std::logic_error("Naming conflict or redefinition for global variable: " + NewVar->_Name);
                     Alloca->eraseFromParent();
+                    delete ExprVal;
                     return ExprValue();
                 }
             }
@@ -300,6 +331,10 @@ namespace ast {
     llvm::Type* ArrayType::GetLLVMType(CodeGenerator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
+        if (this->_BaseType->_isConst) {
+            throw std::logic_error("The base type of array cannot be const.");
+            return NULL;
+        }
         llvm::Type* BaseType = this->_BaseType->GetLLVMType(Gen);
         if (BaseType->isVoidTy()) {
             throw std::logic_error("The base type of array cannot be void.");
@@ -570,7 +605,7 @@ namespace ast {
             }
         }
         else {
-            ExprValue RetVal = TypeCasting(this->_RetVal->codegen(Gen), Func->getReturnType());
+            ExprValue RetVal = ExprValue(TypeCasting(this->_RetVal->codegen(Gen), Func->getReturnType(), Gen));
             if (!RetVal.Value) {
                 throw std::logic_error("The type of return value doesn't match and cannot be cast to the return type.");
                 return ExprValue();
@@ -598,7 +633,7 @@ namespace ast {
             return ExprValue();
         }
         //Return pointer addition
-        return ExprValue(CreateAdd(ArrayPtr.Value, Subspt.Value, Gen));
+        return ExprValue(CreateAdd(ArrayPtr, Subspt, Gen));
     }
 
     //Operator sizeof() in C
@@ -613,8 +648,8 @@ namespace ast {
                 this->_Arg2 = new DefinedType(this->_Arg3);
                 return ExprValue(IRBuilder.getInt64(Gen.GetTypeSize(Type)));
             }
-            ExprValue* VarPtr = Gen.FindVariable(this->_Arg3);
-            if (VarPtr->Value) {
+            const ExprValue* VarPtr = Gen.FindVariable(this->_Arg3);
+            if (VarPtr) {
                 this->_Arg1 = new Variable(this->_Arg3);
                 return ExprValue(IRBuilder.getInt64(Gen.GetTypeSize(VarPtr->Value->getType()->getNonOpaquePointerElementType())));
             }
@@ -630,11 +665,13 @@ namespace ast {
     //Function call
     ExprValue FunctionCall::codegen(CodeGenerator& Gen) {
         //Get the function. Throw exception if the function doesn't exist.
-        llvm::Function* Func = Gen.FindFunction(this->_FuncName);
-        if (Func == NULL) {
+        ast::MyFunction* MyFunc = Gen.FindFunction(this->_FuncName);
+        if (MyFunc == NULL) {
             throw std::domain_error(this->_FuncName + " is not a defined function.");
             return ExprValue();
         }
+        llvm::Function* Func = MyFunc->LLVMFunc;
+        auto Args = MyFunc->Args;
         //Check the number of args. If Func took a different number of args, reject.
         if (Func->isVarArg() && this->_ArgList->size() < Func->arg_size() ||
             !Func->isVarArg() && this->_ArgList->size() != Func->arg_size()) {
@@ -646,7 +683,13 @@ namespace ast {
         size_t Index = 0;
         for (auto ArgIter = Func->arg_begin(); ArgIter < Func->arg_end(); ArgIter++, Index++) {
             ExprValue Arg = this->_ArgList->at(Index)->codegen(Gen);
-            Arg.Value = TypeCasting(Arg, ArgIter->getType());
+            auto ArgType = Args->at(Index)->_VarType;
+
+            if (Arg.IsInnerConstPointer && ArgType->isPointerType() && !((PointerType*)ArgType)->isInnerConst()) {
+                throw std::invalid_argument("Cannot pass an inner-const pointer to a non-inner-const pointer argument.");
+                return ExprValue();
+            }
+            Arg.Value = TypeCasting(Arg, ArgIter->getType(), Gen);
             if (Arg.Value == NULL) {
                 throw std::invalid_argument(std::to_string(Index) + "-th arg type doesn't match when calling function " + this->_FuncName + ".");
                 return ExprValue();
@@ -763,7 +806,14 @@ namespace ast {
 
     //Type cast, e.g. (float)n, (int)1.0
     ExprValue TypeCast::codegen(CodeGenerator& Gen) {
-        ExprValue Ret = TypeCasting(this->_Operand->codegen(Gen), this->_VarType->GetLLVMType(Gen));
+        ExprValue ExprVal = this->_Operand->codegen(Gen);
+        if (ExprVal.IsInnerConstPointer
+            && !(this->_VarType->isPointerType() && ((PointerType*)(this->_VarType))->isInnerConst())) {
+            throw std::logic_error("Cannot type cast an inner-const pointer to a non-inner-const pointer.");
+            return ExprValue();
+        }
+
+        ExprValue Ret = ExprValue(TypeCasting(ExprVal, this->_VarType->GetLLVMType(Gen), Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
         if (Ret.Value == NULL) {
             throw std::logic_error("Unable to do type casting.");
             return ExprValue();
@@ -781,14 +831,18 @@ namespace ast {
     }
     ExprValue PrefixInc::codegenPtr(CodeGenerator& Gen) {
         ExprValue Operand = this->_Operand->codegenPtr(Gen);
-        ExprValue OpValue = IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value);
+        if (Operand.IsInnerConstPointer) {
+            throw std::logic_error("Const variable cannot do prefix increment.");
+            return ExprValue();
+        }
+        ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
             OpValue.Value->getType()->isFloatingPointTy() ||
             OpValue.Value->getType()->isPointerTy())
             )
             throw std::logic_error("Prefix increment must be applied to integers, floating-point numbers or pointers.");
-        ExprValue OpValuePlus = CreateAdd(OpValue.Value, IRBuilder.getInt1(1), Gen);
+        ExprValue OpValuePlus = ExprValue(CreateAdd(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
         return ExprValue(Operand);
     }
@@ -796,14 +850,18 @@ namespace ast {
     //Postfix increment, e.g. i++
     ExprValue PostfixInc::codegen(CodeGenerator& Gen) {
         ExprValue Operand = this->_Operand->codegenPtr(Gen);
-        ExprValue OpValue = IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value);
+        if (Operand.IsInnerConstPointer) {
+            throw std::logic_error("Const variable cannot do postfix increment.");
+            return ExprValue();
+        }
+        ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
             OpValue.Value->getType()->isFloatingPointTy() ||
             OpValue.Value->getType()->isPointerTy())
             )
             throw std::logic_error("Postfix increment must be applied to integers, floating-point numbers or pointers.");
-        ExprValue OpValuePlus = CreateAdd(OpValue.Value, IRBuilder.getInt1(1), Gen);
+        ExprValue OpValuePlus = ExprValue(CreateAdd(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
         return ExprValue(OpValue);
     }
@@ -818,14 +876,18 @@ namespace ast {
     }
     ExprValue PrefixDec::codegenPtr(CodeGenerator& Gen) {
         ExprValue Operand = this->_Operand->codegenPtr(Gen);
-        ExprValue OpValue = IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value);
+        if (Operand.IsInnerConstPointer) {
+            throw std::logic_error("Const variable cannot do prefix decrement.");
+            return ExprValue();
+        }
+        ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
             OpValue.Value->getType()->isFloatingPointTy() ||
             OpValue.Value->getType()->isPointerTy())
             )
             throw std::logic_error("Prefix decrement must be applied to integers, floating-point numbers or pointers.");
-        ExprValue OpValueMinus = CreateSub(OpValue.Value, IRBuilder.getInt1(1), Gen);
+        ExprValue OpValueMinus = ExprValue(CreateSub(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
         return ExprValue(Operand);
     }
@@ -833,14 +895,18 @@ namespace ast {
     //Postfix decrement, e.g. i--
     ExprValue PostfixDec::codegen(CodeGenerator& Gen) {
         ExprValue Operand = this->_Operand->codegenPtr(Gen);
-        ExprValue OpValue = IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value);
+        if (Operand.IsInnerConstPointer) {
+            throw std::logic_error("Const variable cannot do postfix decrement.");
+            return ExprValue();
+        }
+        ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
             OpValue.Value->getType()->isFloatingPointTy() ||
             OpValue.Value->getType()->isPointerTy())
             )
             throw std::logic_error("Postfix decrement must be applied to integers, floating-point numbers or pointers.");
-        ExprValue OpValueMinus = CreateSub(OpValue.Value, IRBuilder.getInt1(1), Gen);
+        ExprValue OpValueMinus = ExprValue(CreateSub(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
         return ExprValue(OpValue);
     }
@@ -898,7 +964,7 @@ namespace ast {
     ExprValue Division::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateDiv(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateDiv(LHS, RHS, Gen));
     }
     ExprValue Division::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Division operator \"/\" only returns right-values.");
@@ -909,7 +975,7 @@ namespace ast {
     ExprValue Multiplication::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateMul(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateMul(LHS, RHS, Gen));
     }
     ExprValue Multiplication::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Multiplication operator \"*\" only returns right-values.");
@@ -920,7 +986,7 @@ namespace ast {
     ExprValue Modulo::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateMod(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateMod(LHS, RHS, Gen));
     }
     ExprValue Modulo::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Modulo operator \"%\" only returns right-values.");
@@ -931,7 +997,7 @@ namespace ast {
     ExprValue Addition::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateAdd(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateAdd(LHS, RHS, Gen));
     }
     ExprValue Addition::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Addition operator \"+\" only returns right-values.");
@@ -942,7 +1008,7 @@ namespace ast {
     ExprValue Subtraction::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateSub(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateSub(LHS, RHS, Gen));
     }
     ExprValue Subtraction::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Subtraction operator \"-\" only returns right-values.");
@@ -953,7 +1019,7 @@ namespace ast {
     ExprValue LeftShift::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateShl(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateShl(LHS, RHS, Gen));
     }
     ExprValue LeftShift::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Left shifting operator \"<<\" only returns right-values.");
@@ -964,7 +1030,7 @@ namespace ast {
     ExprValue RightShift::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateShr(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateShr(LHS, RHS, Gen));
     }
     ExprValue RightShift::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Right shifting operator \">>\" only returns right-values.");
@@ -1171,7 +1237,7 @@ namespace ast {
     ExprValue BitwiseAND::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateBitwiseAND(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateBitwiseAND(LHS, RHS, Gen));
     }
     ExprValue BitwiseAND::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise AND operator \"&\" only returns right-values.");
@@ -1182,7 +1248,7 @@ namespace ast {
     ExprValue BitwiseXOR::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateBitwiseXOR(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateBitwiseXOR(LHS, RHS, Gen));
     }
     ExprValue BitwiseXOR::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise XOR operator \"^\" only returns right-values.");
@@ -1193,7 +1259,7 @@ namespace ast {
     ExprValue BitwiseOR::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateBitwiseOR(LHS.Value, RHS.Value, Gen));
+        return ExprValue(CreateBitwiseOR(LHS, RHS, Gen));
     }
     ExprValue BitwiseOR::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise OR operator \"|\" only returns right-values.");
@@ -1204,12 +1270,12 @@ namespace ast {
     ExprValue LogicAND::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        LHS = Cast2I1(LHS.Value);
+        LHS = ExprValue(Cast2I1(LHS.Value));
         if (LHS.Value == NULL) {
             throw std::domain_error("Logic AND operator \"&&\" must be applied to 2 expressions that can be cast to boolean.");
             return ExprValue();
         }
-        RHS = Cast2I1(RHS.Value);
+        RHS = ExprValue(Cast2I1(RHS.Value));
         if (RHS.Value == NULL) {
             throw std::domain_error("Logic AND operator \"&&\" must be applied to 2 expressions that can be cast to boolean.");
             return ExprValue();
@@ -1225,12 +1291,12 @@ namespace ast {
     ExprValue LogicOR::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        LHS = Cast2I1(LHS.Value);
+        LHS = ExprValue(Cast2I1(LHS.Value));
         if (LHS.Value == NULL) {
             throw std::domain_error("Logic OR operator \"||\" must be applied to 2 expressions that can be cast to boolean.");
             return ExprValue();
         }
-        RHS = Cast2I1(RHS.Value);
+        RHS = ExprValue(Cast2I1(RHS.Value));
         if (RHS.Value == NULL) {
             throw std::domain_error("Logic OR operator \"||\" must be applied to 2 expressions that can be cast to boolean.");
             return ExprValue();
@@ -1244,7 +1310,7 @@ namespace ast {
 
     //TernaryCondition, e.g. (cond)?x:y
     ExprValue TernaryCondition::codegen(CodeGenerator& Gen) {
-        ExprValue Condition = Cast2I1(this->_Condition->codegen(Gen).Value);
+        ExprValue Condition = ExprValue(Cast2I1(this->_Condition->codegen(Gen).Value));
         if (Condition.Value == NULL) {
             throw std::logic_error("The first operand of thernary operand \" ? : \" must be able to be cast to boolean.");
             return ExprValue();
@@ -1260,7 +1326,7 @@ namespace ast {
         }
     }
     ExprValue TernaryCondition::codegenPtr(CodeGenerator& Gen) {
-        ExprValue Condition = Cast2I1(this->_Condition->codegen(Gen).Value);
+        ExprValue Condition = ExprValue(Cast2I1(this->_Condition->codegen(Gen).Value));
         if (Condition.Value == NULL) {
             throw std::logic_error("The first operand of thernary operand \" ? : \" must be able to be cast to boolean.");
             return ExprValue();
@@ -1304,7 +1370,7 @@ namespace ast {
 
     //MulAssign, e.g. x*=y
     ExprValue MulAssign::codegen(CodeGenerator& Gen) {
-        return CreateLoad(this->codegenPtr(Gen).Value, Gen);
+        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
     }
     ExprValue MulAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1476,14 +1542,18 @@ namespace ast {
 
     //Variable, e.g. x
     ExprValue Variable::codegen(CodeGenerator& Gen) {
-        ExprValue* VarPtr = Gen.FindVariable(this->_Name);
-        if (VarPtr->Value) return ExprValue(CreateLoad(VarPtr->Value, Gen), VarPtr->Name, VarPtr->IsConst);
+        const ExprValue* VarPtr = Gen.FindVariable(this->_Name);
+        if (VarPtr) {
+            return ExprValue(CreateLoad(VarPtr->Value, Gen), VarPtr->Name, VarPtr->IsConst, VarPtr->IsInnerConstPointer);
+        }
         throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable.");
         return ExprValue();
     }
     ExprValue Variable::codegenPtr(CodeGenerator& Gen) {
-        ExprValue* VarPtr = Gen.FindVariable(this->_Name);
-        if (VarPtr->Value) return ExprValue(VarPtr->Value, VarPtr->Name, VarPtr->IsConst);
+        const ExprValue* VarPtr = Gen.FindVariable(this->_Name);
+        if (VarPtr) return ExprValue(VarPtr->Value, VarPtr->Name, false,
+            VarPtr->IsConst, VarPtr->IsInnerConstPointer);
+
         throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable");
         return ExprValue();
     }
@@ -1499,6 +1569,9 @@ namespace ast {
             return ExprValue(IRBuilder.getInt32(this->_Integer));
         case BuiltInType::TypeID::_Double:
             return ExprValue(llvm::ConstantFP::get(IRBuilder.getDoubleTy(), this->_Real));
+        default:
+            throw std::logic_error("Unknown constant type.");
+            return ExprValue();
         }
     }
     ExprValue Constant::codegenPtr(CodeGenerator& Gen) {

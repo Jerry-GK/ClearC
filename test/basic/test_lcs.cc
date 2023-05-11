@@ -1,7 +1,7 @@
 //ClearC
 func printf(ptr<char>, ...) -> int;
 func scanf(ptr<char>, ...) -> int;
-func malloc(long) -> ptr<void>;
+func malloc(long)->ptr<void>;
 func strlen(ptr<char>) -> int;
 
 //get the longest common subsequence of str1 and str2, using dp
@@ -33,7 +33,7 @@ func getLCS(ptr<char> str1, ptr<char> str2) -> ptr<char> {
     }
 
     //get the lcs
-    ptr<char> lcs = (ptr<char>)malloc(sizeof(char) * (dp[len1][len2] + 1));
+    ptr<char> lcs = typecast(malloc(sizeof(char) * (dp[len1][len2] + 1)), ptr<char>);
     i = len1;
     j = len2;
     int k = dp[len1][len2] - 1;

@@ -77,10 +77,10 @@ public:
     void PopSymbolTable(void);
 
     //Find the llvm::Function* instance for the given name
-    llvm::Function* FindFunction(std::string Name);
+    ast::MyFunction* FindFunction(std::string Name);
 
     //Add a function to the current symbol table
-    AddFunctionReseult AddFunction(std::string Name, llvm::Function* Function);
+    AddFunctionReseult AddFunction(std::string Name, ast::MyFunction* Function);
 
     //Find the llvm::Type* instance for the given name
     llvm::Type* FindType(std::string Name);
@@ -94,7 +94,7 @@ public:
 
     //Add a variable to the current symbol table
     //If an old value exists (i.e., conflict), return false
-    bool AddVariable(std::string Name, ExprValue Variable);
+    bool AddVariable(std::string Name, ExprValue* Variable);
 
     //Find the ast::StructType* instance according to the llvm::StructType* instance
     ast::StructType* FindStructType(llvm::StructType* Ty1);
@@ -133,12 +133,13 @@ private:
     class Symbol {
     public:
         Symbol(void) : Content(NULL), Type(UNDEFINED) {}
-        Symbol(llvm::Function* Func) : Content(Func), Type(FUNCTION) {}
+        Symbol(ast::MyFunction* Func) : Content(Func), Type(FUNCTION) {}
         Symbol(llvm::Type* Ty) : Content(Ty), Type(TYPE) {}
         Symbol(ExprValue* exprVal) : Content(exprVal), Type(VARIABLE) {}
-        llvm::Function* GetFunction(void) { return this->Type == FUNCTION ? (llvm::Function*)Content : NULL; }
+        ast::MyFunction* GetFunction(void) { return this->Type == FUNCTION ? (ast::MyFunction*)Content : NULL; }
         llvm::Type* GetType(void) { return this->Type == TYPE ? (llvm::Type*)Content : NULL; }
         ExprValue* GetVariable(void) { return this->Type == VARIABLE ? (ExprValue*)Content : NULL; }
+
     private:
         void* Content;
         enum {

@@ -10,9 +10,13 @@ To be finished.
 
 ## Language Features
 
-1. Macro: **No macros. (No code pretreat, only single source code file available)**
+1. **Macro and File**: 
 
-2. Pointer: In C, ` *` has three meanings: multiply, declare a pointer, pointer dereference, which will make the compling procedure complicated and confusing.
+    No macros. (`#define`, `#include` not available, no code pretreat)
+
+    Multi-file coding managing tools like a package manager is not provided yet, only single source code file available.
+
+2. **Pointer**: In C, ` *` has three meanings: multiply, declare a pointer, pointer dereference, which will make the compling procedure complicated and confusing.
    In ClearC, we use the critical word `ptr` to declare a pointer, and use `dptr` to dereference.
 
    We also use `addr()` to get the address instead of using `&`.
@@ -27,7 +31,7 @@ To be finished.
    dptr(pa) = dptr(pa) + 1; //or pa[0] = pa[0] + 1;
    ```
 
-3. Array:
+3. **Array**:
 
    array in ClearC has very limited functionality.
 
@@ -50,6 +54,8 @@ To be finished.
 
    Array can assign to pointers, but cannot be assigned, since it's "const".
 
+   Array base type cannot be void or const;
+
    ```c
    array<char, 10> str =;
    array<char, 10> str1;
@@ -57,6 +63,8 @@ To be finished.
    str = ps; //illegal
    str = str1; //illegal
    array<char, 10> str2 = ps; //illegal
+   array<const int, 10> arr1; //illgeal
+   array<void, 10> arr2; //illgeal
    ```
 
    Array type can not be the function return type, since we don't want any array to accept the return value.
@@ -65,14 +73,14 @@ To be finished.
 
    ```c
    func getArr() -> array<int, 10>; //illegal
-   func printArr(array<char, 10>) -> void; //legal
+   func printArr(array<char, 10>) -> void; //illegal
    ```
 
    If you want to use array more  flexibly, we recommend to use pointers.
 
    
 
-4. Function
+4. **Function**
 
    We want the function declaration more clear.
 
@@ -88,8 +96,8 @@ To be finished.
      return; //return res;
    }
    ```
-
-5. struct, class, union, enum
+   Look at OOP for more function formats.
+5. **struct**, class, union, enum
 
    - `struct {Fileds;};` is a data type defined by programmers, which is a anonymous and temporary.
 
@@ -112,7 +120,49 @@ To be finished.
 
    - **`union` and `enum` are temporarily abandoned in ClearC.**
 
-6. typedef
+   
+
+6. **const** and static
+
+   Usually, const means a variable cannot change its value, so it will remain the initial value forever.
+
+   ptr<`const varType`> is a specially grammar (inner-const), which means nobody can modify the variable pointed by this pointer **through this pointer**, and there are some rules (just like in C).
+
+   - Two const:
+       - Outer-const: The variable itself is const, it's value can only be initializaed, but not be assigned.
+       - Inner-const: A feature of pointer. Cannot modify the content through inner-const pointer.
+
+   - Rules:
+
+       - const variable can only pointed by ptr<`const`> (Outer const variable can only be pointed by inner-const pointer)
+
+       - Variable pointed by ptr<`const`> may change its value(if it's not const), but cannot change through the ptr<`const`>.
+
+       - const ptr must point to the fixed address, but the value in this address may change.
+
+       - Cannot assign ptr<`const`> to ptr which is not inner-const. Function with ptr<`const`> argument can neither receive non-inner-const pointer.
+       - Cannot type cast a ptr<`const`> to a non-inner-const pointer.
+
+   ```c
+   const varType v = val_0; //this var cannot be modified
+   v = val_1; //illegal
+   ptr<varType> pv = addr(v); //illegal: v may be modified through pv. addr(v) is type ptr<const varType>
+   
+   ptr<const varType> pcv = addr(v); //legal
+   dptr(pcv)= val_2; //illgeal: cannot modify v through pcv
+   pv = pcv; //illegal: ptr<const varType> cannot assign ptr<varType> (or const ptr<varType>)
+   pv = typecast(pcv, ptr<varType>); //illegal: annot type cast inner-const to non-inner-const
+   
+   const ptr<varType> cpv= null; //cpv cannot be modified
+   cpv = pv //illegal: const ptr cannot be assigned
+   
+   ```
+
+   **`static` is abandoned in ClearC.**
+
+   
+
+7. **typedef**
 
    ClearC use `typedef name type` instead of  `typedef type name` in C.
 
@@ -125,39 +175,38 @@ To be finished.
    }
    ```
 
-7. const and static
+8. **typecast**
 
-   Usually, const means a variable cannot change its value, so it will remain the initial value forever.
-
-   ptr<`const varType`> is a specially grammar (inner-const), which means nobody can modify the variable pointed by this pointer **through this pointer**, and there are some rules (just like in C).
-
-   - const variable can only pointed by ptr<`const`>
-   - Variable pointed by ptr<`const`> may change its value(if it's not const), but cannot change through the ptr<`const`>.
-   - const ptr must point to the fixed address, but the value in this address may change.
-   - Can Not assign ptr<`const`> to ptr which is not inner-const.
+   In ClearC, explicit typecast is in a more obvious way;
 
    ```c
-   const varType v = val; //this var cannot be modified
-   ptr<varType> pv = addr(v); //illegal: v may be modified through pv. addr(v) is type ptr<const varType>
-   
-   ptr<const varType> pcv = addr(v); //legal
-   dptr(pcv）= val_; //illgeal: cannot modify v through pcv
-   pv = pcv; //illegal: ptr<const varType> cannot assign ptr<varType> (or const ptr<varType>)
-   
-   const ptr<varType> cpv= null; //cpv cannot be modified
-   cpv = pv //illegal: const ptr cannot be assigned
-   
+   int a = 1;
+   float f = typecast(a, float); //float f = (float)a;
    ```
 
-   **`static` is abandoned in ClearC.**
+   Supported type cast:
 
-8. Control Grammar
+   - Int -> Int, Float
 
-   In `if, for, switch`, condition does NOT need to be in `()`, but the body code must be in `{}`
+   - Float -> Int, Float
+
+   - Pointer -> Int, Pointer (same basetype)
+
+   Implicit typecast may also happen.
+
+   **Cannot type cast an inner-const pointer to a non-inner-const pointer.**
+
+   
+
+9. **Control Grammar**
+
+   In `if, for, switch`, **condition does NOT need to be in `()`, but the body code must be in `{}`**
 
    Declaration is allowed in for's initial statement (like c++).
 
    We use `for condition {}` to replace `while condition {}`.  `for{}` is unconditional loop.
+
+   So `while` is not a critical word in ClearC.
 
    **`do{} while`  is abandoned in ClearC.**
 
@@ -191,11 +240,11 @@ To be finished.
    }
    ```
 
-9. naming
+10. naming
 
    For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
 
-   In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. Functions, types and variables can NOT have the same name with each other, otherwise will raise **naming conflict error**.
+   In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. **Functions, types and variables can NOT have the same name with each other**, otherwise will raise **naming conflict error**.
 
    ```c
    //naming conflict for identifier "Student"
@@ -211,7 +260,7 @@ To be finished.
 
    
 
-10. OOP (to do)
+11. OOP (to do)
 
    We want to make the OOP style like golang.
 

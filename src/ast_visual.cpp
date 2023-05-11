@@ -5,7 +5,8 @@
 using namespace std;
 using namespace ast;
 
-//È¥³ý×ªÒå×Ö·û
+extern const char* Html;
+
 string getString(string name) {
     // s is our escaped output string
     std::string s = "";
@@ -71,6 +72,16 @@ string Program::astJson() {
     // children.push_back(getJson("Decls", declJson));
     return getJson("Program", declJson);
     //return getJson("program",vector<string>{Decl->getJson()});
+}
+
+void Program::genHTML(std::string FileName) {
+    std::string OutputString = Html;
+    std::string Json = astJson();
+    std::string Target = "${ASTJson}";
+    auto Pos = OutputString.find(Target);
+    OutputString.replace(Pos, Target.length(), Json.c_str());
+    std::ofstream HTMLFile(FileName);
+    HTMLFile << OutputString;
 }
 
 string FuncDecl::astJson() {

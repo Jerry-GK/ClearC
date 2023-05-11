@@ -1,5 +1,6 @@
 %{
 #include "ast.hpp" 
+#include "../include/util.h"
 #include <string>
 #include <iostream>
 
@@ -8,7 +9,7 @@
 
 void yyerror(char *s) {
     extern int yylineno;
-    std::printf("[Syntax Error]: %s at line %d\n", s, yylineno);
+    printError("[Syntax Error]: " + std::string(s) + " at line " + std::to_string(yylineno));
 	std::exit(1); 
 }
 
@@ -65,7 +66,7 @@ ast::Program *Root;
 		ARROW BXOREQ BXOR BNOT
 		DADD ADDEQ ADD DSUB SUBEQ SUB
 		MULEQ MUL DIVEQ DIV MODEQ MOD
-		FUNC STRUCT TYPEDEF CONST PTR ARRAY DPTR ADDR
+		FUNC STRUCT TYPEDEF TYPECAST CONST PTR ARRAY DPTR ADDR
 		IF ELSE FOR SWITCH CASE DEFAULT 
 		BREAK CONTINUE RETURN SIZEOF TRUE FALSE NULL_
 		BOOL SHORT INT LONG CHAR FLOAT DOUBLE VOID
@@ -172,8 +173,8 @@ VarType:	_VarType												{  $$ = $1;   }
 
 _VarType:	BuiltInType												{  $$ = $1;   }
 			| STRUCT LBRACE FieldDecls RBRACE						{  $$ = new ast::StructType($3);   }
-			| PTR LT_ _VarType GT_									{  $$ = new ast::PointerType($3);   }
-			| ARRAY LT_ _VarType COMMA INTEGER GT_					{  $$ = new ast::ArrayType($3,$5);   }
+			| PTR LT_ VarType GT_									{  $$ = new ast::PointerType($3);   }
+			| ARRAY LT_ VarType COMMA INTEGER GT_					{  $$ = new ast::ArrayType($3,$5);   }
 			| IDENTIFIER											{  $$ = new ast::DefinedType(*$1);   }
 			;
 			
@@ -280,7 +281,7 @@ Expr:		Expr LBRACKET Expr RBRACKET %prec ARROW					{  $$ = new ast::Subscript($1
 			| Expr ARROW IDENTIFIER									{  $$ = new ast::StructDereference($1,*$3);   }
 			| ADD Expr	%prec NOT									{  $$ = new ast::UnaryPlus($2);   }
 			| SUB Expr	%prec NOT									{  $$ = new ast::UnaryMinus($2);   }
-			| LPAREN VarType RPAREN Expr %prec NOT					{  $$ = new ast::TypeCast($2,$4);   }
+			| TYPECAST LPAREN  Expr COMMA VarType RPAREN %prec NOT  {  $$ = new ast::TypeCast($5,$3);   }
 			| DADD Expr	%prec NOT									{  $$ = new ast::PrefixInc($2);   }
 			| Expr DADD %prec ARROW									{  $$ = new ast::PostfixInc($1);   }
 			| DSUB Expr %prec NOT									{  $$ = new ast::PrefixDec($2);   }

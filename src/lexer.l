@@ -80,6 +80,7 @@ char EscapeOfChar(char ch){
 "func"													{return FUNC;}
 "struct"												{return STRUCT;}
 "typedef"												{return TYPEDEF;}
+"typecast"												{return TYPECAST;}
 "const"													{return CONST;}
 "ptr"													{return PTR;}
 "dptr"                                                  {return DPTR;} 

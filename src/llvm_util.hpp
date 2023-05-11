@@ -24,24 +24,13 @@ llvm::Value* Cast2I1(llvm::Value* Value) {
 	}
 }
 
-std::string GetTypeStr(llvm::Type* Type) {
-	if (Type == NULL) return "";
-	//Type = Type->getNonOpaquePointerElementType();
-	if (Type->isIntegerTy()) return "int";
-	if (Type->isFloatingPointTy()) return "float";
-	if (Type->isPointerTy()) return "pointer";
-	if (Type->isArrayTy()) return "array";
-	if (Type->isStructTy()) return "struct";
-	return "unknown";
-}
-
 //Type casting
 //Supported:
-//1. Int -> Int, FP, Pointer
-//2. FP -> Int, FP
-//3. Pointer -> Int, Pointer
+//1. Int -> Int, Float
+//2. Float -> Int, Float
+//3. Pointer -> Int, Pointer (same basetype)
 //Other types are not supported, and will return NULL.
-llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type) {
+llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type, CodeGenerator& Gen) {
 	llvm::Value* Value = ExprVal.Value;
 	if (Value->getType() == Type) {
 		return Value;
@@ -55,9 +44,6 @@ llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type) {
 	else if (Value->getType()->isIntegerTy() && Type->isFloatingPointTy()) {
 		return Value->getType()->isIntegerTy(1) ?
 			IRBuilder.CreateUIToFP(Value, Type) : IRBuilder.CreateSIToFP(Value, Type);
-	}
-	else if (Value->getType()->isIntegerTy() && Type->isPointerTy()) {
-		return IRBuilder.CreateIntToPtr(Value, Type);
 	}
 	else if (Value->getType()->isFloatingPointTy() && Type->isIntegerTy()) {
 		return IRBuilder.CreateFPToSI(Value, Type);
@@ -73,7 +59,7 @@ llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type) {
 	}
 	else {
 		//error msg
-		throw std::logic_error("Type cast not allowed: " + GetTypeStr(Type) + " <- " + GetTypeStr(Value->getType()));
+		throw std::logic_error("Type cast failed");
 		return NULL;
 	}
 }
@@ -406,12 +392,19 @@ llvm::Value* CreateAssignment(ExprValue pLHS, ExprValue RHS, CodeGenerator& Gene
 		throw std::domain_error("Array type (const ptr) variable cannot be assigned.");
 		return NULL;
 	}
-	if (pLHS.IsConst) {
+	if (pLHS.IsInnerConstPointer) {
 		throw std::domain_error("Const variable cannot be assigned.");
 		return NULL;
 	}
 
-	RHS.Value = TypeCasting(RHS, pLHS.Value->getType()->getNonOpaquePointerElementType());
+	//not allow ptr<const> assign to ptr<>
+	if (pLHS.Value->getType()->getNonOpaquePointerElementType()->isPointerTy() && !pLHS.IsPointingToInnerConst &&
+		RHS.Value->getType()->isPointerTy() && RHS.IsInnerConstPointer) {
+		throw std::domain_error("Inner-const pointer cannot assign to a non-inner-const pointer.");
+		return NULL;
+	}
+
+	RHS.Value = TypeCasting(RHS, pLHS.Value->getType()->getNonOpaquePointerElementType(), Generator);
 	if (RHS.Value == NULL) {
 		throw std::domain_error("Assignment with values that cannot be cast to the target type.");
 		return NULL;
