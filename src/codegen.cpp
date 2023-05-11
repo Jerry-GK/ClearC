@@ -66,7 +66,7 @@ AddFunctionReseult CodeGenerator::AddFunction(std::string Name, ast::MyFunction*
 }
 
 //Find the llvm::Type* instance for the given name
-llvm::Type* CodeGenerator::FindType(std::string Name) {
+ast::MyType* CodeGenerator::FindType(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
     for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
         auto mapIter = (*TableIter)->find(Name);
@@ -78,7 +78,7 @@ llvm::Type* CodeGenerator::FindType(std::string Name) {
 
 //Add a type to the current symbol table
 //If an old value exists (i.e., conflict), return false
-bool CodeGenerator::AddType(std::string Name, llvm::Type* Type) {
+bool CodeGenerator::AddType(std::string Name, ast::MyType* Type) {
     if (this->SymbolTableStack.size() == 0) return false;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
@@ -129,12 +129,12 @@ bool CodeGenerator::AddStructType(llvm::StructType* Ty1, ast::StructType* Ty2) {
 }
 
 //Set current function
-void CodeGenerator::SetCurFunction(llvm::Function* Func) {
+void CodeGenerator::SetCurFunction(ast::MyFunction* Func) {
     this->CurFunction = Func;
 }
 
 //Get the current function
-llvm::Function* CodeGenerator::GetCurrentFunction(void) {
+ast::MyFunction* CodeGenerator::GetCurrentFunction(void) {
     return this->CurFunction;
 }
 

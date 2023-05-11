@@ -4,7 +4,7 @@
 
 **A Compiler for ClearC, a Simplified but More Clear C Language with some Go Features.**
 
-It's initial framework and inspiration come from [C-Compiler](https://github.com/YJJfish/C-Compiler).
+It's initial framework and inspiration come from [C-Compiler](https://github.com/YJJfish/C-Compiler). Many new features are added, such as clearer grammar, `const` constraint and  functions in OOP style.
 
 To be finished.
 
@@ -90,13 +90,11 @@ To be finished.
    func sum(int a, int b) -> int {
      return a + b;
    }
-   
-   func mul(int a, int b) -> int res {
-   	res = a * b;
-     return; //return res;
-   }
    ```
+   Function in ClearC must have a return statement, even if it has void return type.
+
    Look at OOP for more function formats.
+
 5. **struct**, class, union, enum
 
    - `struct {Fileds;};` is a data type defined by programmers, which is a anonymous and temporary.
@@ -158,6 +156,27 @@ To be finished.
    
    ```
 
+   For a const struct variable, all member variables are also const.
+
+   Const members is always const.
+
+   ```c
+   typedef Point struct{
+   	int x;
+   	int y;
+     const int cval;
+   };
+   const Point p;
+   p.x = 1; //illegal
+   ptr<const Point> pp = addr(p);
+   pp->y = 1; //illegal
+   
+   Point p1;
+   p1.cval = 1; //illegal
+   ```
+
+   Result of arithmetic operation on inner-const pointer will still be inner-const.
+
    **`static` is abandoned in ClearC.**
 
    
@@ -181,7 +200,7 @@ To be finished.
 
    ```c
    int a = 1;
-   float f = typecast(a, float); //float f = (float)a;
+   float f = typecast(a, float); //like float f = (float)a in C;
    ```
 
    Supported type cast:
@@ -190,11 +209,15 @@ To be finished.
 
    - Float -> Int, Float
 
-   - Pointer -> Int, Pointer (same basetype)
+   - Pointer -> Int, Pointer 
 
    Implicit typecast may also happen.
 
    **Cannot type cast an inner-const pointer to a non-inner-const pointer.**
+
+   Pointer can type cast to a pointer with different base type, we don't figure out how to forbid this. However, it's mot recommended to do so.
+
+   **Again, pointer cast with different base type is very dangerous and not recommended!**
 
    
 
@@ -242,23 +265,23 @@ To be finished.
 
 10. naming
 
-   For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+       For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
 
-   In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. **Functions, types and variables can NOT have the same name with each other**, otherwise will raise **naming conflict error**.
+       In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. **Functions, types and variables can NOT have the same name with each other**, otherwise will raise **naming conflict error**.
 
-   ```c
-   //naming conflict for identifier "Student"
-   int Student; //variable
-   typedef Student struct{}; //type
-   func Student() -> void; //function
-   
-   func f() -> void{
-     int Student; //this will NOT cause naming conflict
-     return;
-   }
-   ```
+       ```c
+    //naming conflict for identifier "Student"
+    int Student; //variable
+    typedef Student struct{}; //type
+    func Student() -> void; //function
+    
+    func f() -> void{
+      int Student; //this will NOT cause naming conflict
+      return;
+    }
+       ```
 
-   
+      
 
 11. OOP (to do)
 
@@ -305,6 +328,16 @@ To be finished.
 ## Compile Procedure
 
 source code -> tokens -> ast -> IR -> object file -> executable file
+
+## Environment
+
+1. Flex and Bison
+
+2. LLVM
+
+    LLVM-14 is the recommended version.
+
+3. CMake
 
 ## Build & Run
 

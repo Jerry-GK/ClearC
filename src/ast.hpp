@@ -41,34 +41,45 @@ public:
         Name(""),
         IsConst(false),
         IsInnerConstPointer(false),
-        IsPointingToInnerConst(false) {}
+        IsPointingToInnerConst(false),
+        IsZeroConstant(false) {}
     explicit ExprValue(llvm::Value* _v) :
         Value(_v),
         Name(""),
         IsConst(false),
         IsInnerConstPointer(false),
-        IsPointingToInnerConst(false) {}
+        IsPointingToInnerConst(false),
+        IsZeroConstant(false) {}
     explicit ExprValue(llvm::Value* _v, std::string _n, bool _isc, bool _iicp, bool _ipic = false) :
         Value(_v),
         Name(_n),
         IsConst(_isc),
         IsInnerConstPointer(_iicp),
-        IsPointingToInnerConst(_ipic) {}
+        IsPointingToInnerConst(_ipic),
+        IsZeroConstant(false) {}
 
     ExprValue(const ExprValue& other) :
         Value(other.Value),
         Name(other.Name),
         IsConst(other.IsConst),
         IsInnerConstPointer(other.IsInnerConstPointer),
-        IsPointingToInnerConst(other.IsPointingToInnerConst) {}
+        IsPointingToInnerConst(other.IsPointingToInnerConst),
+        IsZeroConstant(other.IsZeroConstant) {}
+
+    void SetIsZeroConstant() {
+        IsZeroConstant = true;
+    }
 
     ~ExprValue(void) {}
 
     llvm::Value* Value;
     std::string Name;
+
     bool IsConst;
     bool IsInnerConstPointer;
     bool IsPointingToInnerConst;
+
+    bool IsZeroConstant;
 };
 
 
@@ -1154,12 +1165,24 @@ namespace ast {
     // to record ArgList
     class MyFunction {
     public:
-        explicit MyFunction(llvm::Function* _f, ArgList* _a) :
+        explicit MyFunction(llvm::Function* _f, ArgList* _a, VarType* _r) :
             LLVMFunc(_f),
-            Args(_a) {}
+            Args(_a),
+            RetType(_r) {}
 
         llvm::Function* LLVMFunc;
         ArgList* Args;
+        VarType* RetType;
     };
 
+    // to record Fileds for struct
+    class MyType {
+    public:
+        explicit MyType(llvm::Type* _t, FieldDecls* _f) :
+            LLVMType(_t),
+            Fileds(_f) {}
+
+        llvm::Type* LLVMType;
+        FieldDecls* Fileds;
+    };
 }

@@ -26,7 +26,7 @@ llvm::Value* Cast2I1(llvm::Value* Value) {
 
 //Type casting
 //Supported:
-//1. Int -> Int, Float
+//1. Int -> Int, Float, Pointer(val = 0)
 //2. Float -> Int, Float
 //3. Pointer -> Int, Pointer (same basetype)
 //Other types are not supported, and will return NULL.
@@ -44,6 +44,13 @@ llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type, CodeGenerator& Gen
 	else if (Value->getType()->isIntegerTy() && Type->isFloatingPointTy()) {
 		return Value->getType()->isIntegerTy(1) ?
 			IRBuilder.CreateUIToFP(Value, Type) : IRBuilder.CreateSIToFP(Value, Type);
+	}
+	else if (Value->getType()->isIntegerTy() && Type->isPointerTy()) {
+		if (!ExprVal.IsZeroConstant) {
+			throw std::logic_error("Type cast failed: pointer can only be casted from integer constant null (or 0)");
+			return NULL;
+		}
+		return IRBuilder.CreateIntToPtr(Value, Type);
 	}
 	else if (Value->getType()->isFloatingPointTy() && Type->isIntegerTy()) {
 		return IRBuilder.CreateFPToSI(Value, Type);

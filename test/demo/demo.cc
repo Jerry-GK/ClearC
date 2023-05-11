@@ -2,7 +2,7 @@ func printf(ptr<char>, ...) -> int;
 func scanf(ptr<char>, ...) -> int;
 
 typedef Student struct {
-    int x;
+    const int x;
 };
 
 typedef Teacher struct {
@@ -13,33 +13,29 @@ typedef Teacher struct {
 typedef varType int;
 
 
-func printStr(const ptr<char> arr)->void {
-    int cur = 0;
-    for{
-        if (arr[cur] == '\0')
-        {
-            break;
-        }
-        else {
-            printf("%c", arr[cur]);
-        }
-        cur++;
+func f(ptr<int> p)-> ptr<int> {
+    if p[0] > 1{
+        return p;
     }
-    return;
+    else {
+        return null;
+    }
 }
 
+typedef Point struct {
+    int x;
+    int y;
+    const int cval;
+};
+
 func main() -> int {
-    array<char, 10> arr;
-    arr[0] = 'h';
-    arr[1] = 'e';
-    arr[2] = 'l';
-    arr[3] = 'l';
-    arr[4] = 'o';
-    arr[5] = '\0';
+    const Point p;
+    //p.x = 1; //illegal
+    ptr<const Point> pp = addr(p);
+    //pp->y = 1; //illegal
 
-    printStr(arr);
-
-    //printf("%s\n", arr);
+    Point p1;
+    p1.cval = 1; //illegal
 
     return 0;
 }

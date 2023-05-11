@@ -53,7 +53,7 @@ namespace ast {
         llvm::FunctionType* FuncType = llvm::FunctionType::get(RetType, ArgTypes, this->_ArgList->_VarArg);
         //Create function
         llvm::Function* Func = llvm::Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage, this->_Name, Gen.Module);
-        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList);
+        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList, this->_RetType);
         auto ret = Gen.AddFunction(this->_Name, MyFunc); //add function into symbol table
         if (ret == ADDFUNC_NAMECONFLICT) {
             throw std::logic_error("Naming conflict for function: " + this->_Name);
@@ -117,7 +117,7 @@ namespace ast {
                 }
             }
             //Generate code of the function body
-            Gen.SetCurFunction(Func);
+            Gen.SetCurFunction(MyFunc);
             Gen.PushSymbolTable();
             this->_FuncBody->codegen(Gen);
             Gen.PopSymbolTable();
@@ -170,7 +170,7 @@ namespace ast {
                 if (this->_VarType->isPointerType()) {
                     isInnerConst = ((PointerType*)this->_VarType)->isInnerConst();
                 }
-                auto Alloca = CreateEntryBlockAlloca(Gen.GetCurrentFunction(), NewVar->_Name, VarType);
+                auto Alloca = CreateEntryBlockAlloca(Gen.GetCurrentFunction()->LLVMFunc, NewVar->_Name, VarType);
                 auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst, isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, ExprVal)) {
                     throw std::logic_error("Naming conflict or redefinition for local variable: " + NewVar->_Name);
@@ -281,8 +281,15 @@ namespace ast {
             throw std::logic_error("Typedef " + this->_Alias + " using undefined types.");
             return ExprValue();
         }
-        if (!Gen.AddType(this->_Alias, LLVMType))
+
+        FieldDecls* Fields = NULL;
+        if (this->_VarType->isStructType())
+            Fields = ((ast::StructType*)this->_VarType)->_StructBody;
+        MyType* MyTy = new MyType(LLVMType, Fields);
+        if (!Gen.AddType(this->_Alias, MyTy)) {
             throw std::logic_error("Naming conflict or redefinition for type: " + this->_Alias);
+            return ExprValue();
+        }
         //For struct or union types, we need to generate its body
         if (this->_VarType->isStructType())
             ((ast::StructType*)this->_VarType)->GenerateLLVMTypeBody(Gen);
@@ -311,7 +318,7 @@ namespace ast {
     llvm::Type* DefinedType::GetLLVMType(CodeGenerator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
-        this->_LLVMType = Gen.FindType(this->_Name);
+        this->_LLVMType = Gen.FindType(this->_Name)->LLVMType;
         if (this->_LLVMType == NULL) {
             throw std::logic_error("Undefined type: \"" + this->_Name + "\"");
             return NULL;
@@ -409,7 +416,7 @@ namespace ast {
             return ExprValue();
         }
         //Create "Then", "Else" and "Merge" block
-        llvm::Function* CurrentFunc = Gen.GetCurrentFunction();
+        llvm::Function* CurrentFunc = Gen.GetCurrentFunction()->LLVMFunc;
         llvm::BasicBlock* ThenBB = llvm::BasicBlock::Create(Context, "Then");
         llvm::BasicBlock* ElseBB = llvm::BasicBlock::Create(Context, "Else");
         llvm::BasicBlock* MergeBB = llvm::BasicBlock::Create(Context, "Merge");
@@ -445,7 +452,7 @@ namespace ast {
     //For statement
     ExprValue ForStmt::codegen(CodeGenerator& Gen) {
         //Create "ForCond", "ForLoop", "ForTail" and "ForEnd"
-        llvm::Function* CurrentFunc = Gen.GetCurrentFunction();
+        llvm::Function* CurrentFunc = Gen.GetCurrentFunction()->LLVMFunc;
         llvm::BasicBlock* ForCondBB = llvm::BasicBlock::Create(Context, "ForCond");
         llvm::BasicBlock* ForLoopBB = llvm::BasicBlock::Create(Context, "ForLoop");
         llvm::BasicBlock* ForTailBB = llvm::BasicBlock::Create(Context, "ForTail");
@@ -503,7 +510,7 @@ namespace ast {
 
     //Switch statement
     ExprValue SwitchStmt::codegen(CodeGenerator& Gen) {
-        llvm::Function* CurrentFunc = Gen.GetCurrentFunction();
+        llvm::Function* CurrentFunc = Gen.GetCurrentFunction()->LLVMFunc;
         //Evaluate condition
         //Since we don't allow variable declarations in switch-matcher (because we only allow expressions there),
         //we don't need to push a symbol table.
@@ -591,7 +598,7 @@ namespace ast {
 
     //Return statement
     ExprValue ReturnStmt::codegen(CodeGenerator& Gen) {
-        llvm::Function* Func = Gen.GetCurrentFunction();
+        llvm::Function* Func = Gen.GetCurrentFunction()->LLVMFunc;
         if (!Func) {
             throw std::logic_error("Return statement should only be used in function bodies.");
             return ExprValue();
@@ -605,7 +612,17 @@ namespace ast {
             }
         }
         else {
-            ExprValue RetVal = ExprValue(TypeCasting(this->_RetVal->codegen(Gen), Func->getReturnType(), Gen));
+            auto ExprVal = this->_RetVal->codegen(Gen);
+            auto RetType = Gen.GetCurrentFunction()->RetType;
+            auto RetLLVMType = Func->getReturnType();
+
+            if (ExprVal.IsInnerConstPointer &&
+                !(RetType->isPointerType() && ((PointerType*)(RetType))->isInnerConst())) {
+                throw std::logic_error("Cannot return an inner-const pointer as non-inner-const pointer type.");
+                return ExprValue();
+            }
+
+            ExprValue RetVal = ExprValue(TypeCasting(ExprVal, RetLLVMType, Gen));
             if (!RetVal.Value) {
                 throw std::logic_error("The type of return value doesn't match and cannot be cast to the return type.");
                 return ExprValue();
@@ -617,7 +634,8 @@ namespace ast {
 
     //Subscript, e.g. a[10], b[2][3]
     ExprValue Subscript::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue Subscript::codegenPtr(CodeGenerator& Gen) {
         //Get the pointer
@@ -633,7 +651,8 @@ namespace ast {
             return ExprValue();
         }
         //Return pointer addition
-        return ExprValue(CreateAdd(ArrayPtr, Subspt, Gen));
+        return ExprValue(CreateAdd(ArrayPtr, Subspt, Gen), ArrayPtr.Name, ArrayPtr.IsConst,
+            ArrayPtr.IsInnerConstPointer, ArrayPtr.IsPointingToInnerConst);
     }
 
     //Operator sizeof() in C
@@ -643,7 +662,7 @@ namespace ast {
         else if (this->_Arg2)//VarType
             return ExprValue(IRBuilder.getInt64(Gen.GetTypeSize(this->_Arg2->GetLLVMType(Gen))));
         else {//Single identifier
-            llvm::Type* Type = Gen.FindType(this->_Arg3);
+            llvm::Type* Type = Gen.FindType(this->_Arg3)->LLVMType;
             if (Type) {
                 this->_Arg2 = new DefinedType(this->_Arg3);
                 return ExprValue(IRBuilder.getInt64(Gen.GetTypeSize(Type)));
@@ -708,7 +727,12 @@ namespace ast {
                 ArgList.push_back(Arg.Value);
             }
         //Create function call.
-        return ExprValue(IRBuilder.CreateCall(Func, ArgList));
+        auto RetType = MyFunc->RetType;
+        bool isInnerConst = false;
+        if (RetType->isPointerType()) {
+            isInnerConst = ((PointerType*)RetType)->isInnerConst();
+        }
+        return ExprValue(IRBuilder.CreateCall(Func, ArgList), "", RetType->_isConst, isInnerConst);
     }
     ExprValue FunctionCall::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Function call only returns right-values.");
@@ -717,7 +741,8 @@ namespace ast {
 
     //Structure reference, e.g. a.x, a.y
     ExprValue StructReference::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue StructReference::codegenPtr(CodeGenerator& Gen) {
         ExprValue StructPtr = this->_Struct->codegenPtr(Gen);
@@ -738,19 +763,28 @@ namespace ast {
             std::vector<llvm::Value*> Indices;
             Indices.push_back(IRBuilder.getInt32(0));
             Indices.push_back(IRBuilder.getInt32(MemIndex));
-            return ExprValue(IRBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices));
+
+            auto memType = StructType->_StructBody->at(MemIndex)->_VarType;
+            bool isConst = memType->_isConst || StructPtr.IsInnerConstPointer;
+            bool isInnerConst = false;
+            if (memType->isPointerType()) {
+                isInnerConst = ((PointerType*)memType)->isInnerConst();
+            }
+            return ExprValue(IRBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices)
+                , "", false, isConst, isInnerConst);
         }
         return ExprValue();
     }
 
     //Structure dereference, e.g. a->x, a->y
     ExprValue StructDereference::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue StructDereference::codegenPtr(CodeGenerator& Gen) {
         ExprValue StructPtr = this->_StructPtr->codegen(Gen);
         if (!StructPtr.Value->getType()->isPointerTy() || !StructPtr.Value->getType()->getNonOpaquePointerElementType()->isStructTy()) {
-            throw std::logic_error("Dereference operator \"->\" must be apply to struct pointers.");
+            throw std::logic_error("Reference operator \".\" must be apply to structs.");
             return ExprValue();
         }
         //Since C language uses name instead of index to fetch the element inside a struct,
@@ -766,7 +800,15 @@ namespace ast {
             std::vector<llvm::Value*> Indices;
             Indices.push_back(IRBuilder.getInt32(0));
             Indices.push_back(IRBuilder.getInt32(MemIndex));
-            return ExprValue(IRBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices));
+
+            auto memType = StructType->_StructBody->at(MemIndex)->_VarType;
+            bool isConst = memType->_isConst || StructPtr.IsInnerConstPointer;
+            bool isInnerConst = false;
+            if (memType->isPointerType()) {
+                isInnerConst = ((PointerType*)memType)->isInnerConst();
+            }
+            return ExprValue(IRBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices)
+                , "", false, isConst, isInnerConst);
         }
         return ExprValue();
     }
@@ -795,9 +837,9 @@ namespace ast {
             )
             throw std::logic_error("Unary minus must be applied to integers or floating-point numbers.");
         if (Operand.Value->getType()->isIntegerTy())
-            return ExprValue(IRBuilder.CreateNeg(Operand.Value));
+            return ExprValue(IRBuilder.CreateNeg(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer);
         else
-            return ExprValue(IRBuilder.CreateFNeg(Operand.Value));
+            return ExprValue(IRBuilder.CreateFNeg(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer);
     }
     ExprValue UnaryMinus::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Unary minus only returns right-values.");
@@ -827,7 +869,8 @@ namespace ast {
 
     //Prefix increment, e.g. ++i
     ExprValue PrefixInc::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue PrefixInc::codegenPtr(CodeGenerator& Gen) {
         ExprValue Operand = this->_Operand->codegenPtr(Gen);
@@ -863,7 +906,7 @@ namespace ast {
             throw std::logic_error("Postfix increment must be applied to integers, floating-point numbers or pointers.");
         ExprValue OpValuePlus = ExprValue(CreateAdd(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
-        return ExprValue(OpValue);
+        return ExprValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
     ExprValue PostfixInc::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Postfix increment only returns right-values.");
@@ -872,7 +915,8 @@ namespace ast {
 
     //Prefix decrement, e.g. --i
     ExprValue PrefixDec::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue PrefixDec::codegenPtr(CodeGenerator& Gen) {
         ExprValue Operand = this->_Operand->codegenPtr(Gen);
@@ -908,16 +952,17 @@ namespace ast {
             throw std::logic_error("Postfix decrement must be applied to integers, floating-point numbers or pointers.");
         ExprValue OpValueMinus = ExprValue(CreateSub(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
-        return ExprValue(OpValue);
+        return ExprValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
     ExprValue PostfixDec::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Postfix decrement only returns right-values.");
         return ExprValue();
     }
 
-    //Indirection, e.g. *ptr
+    //Indirection, e.g. dptr(x)
     ExprValue Indirection::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue Indirection::codegenPtr(CodeGenerator& Gen) {
         ExprValue Ptr = this->_Operand->codegen(Gen);
@@ -928,7 +973,7 @@ namespace ast {
         return ExprValue(Ptr);
     }
 
-    //Fetch address, e.g. &i
+    //Fetch address, e.g. addr()
     ExprValue AddressOf::codegen(CodeGenerator& Gen) {
         return ExprValue(this->_Operand->codegenPtr(Gen));
     }
@@ -939,7 +984,8 @@ namespace ast {
 
     //Logic NOT, e.g. !x
     ExprValue LogicNot::codegen(CodeGenerator& Gen) {
-        return ExprValue(IRBuilder.CreateICmpEQ(Cast2I1(this->_Operand->codegen(Gen).Value), IRBuilder.getInt1(false)));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(IRBuilder.CreateICmpEQ(Cast2I1(ExprVal.Value), IRBuilder.getInt1(false)), ExprVal.Name, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue LogicNot::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Logic NOT operator \"!\" only returns right-values.");
@@ -953,7 +999,7 @@ namespace ast {
             throw std::logic_error("Bitwise NOT operator \"~\" must be applied to integers.");
             return ExprValue();
         }
-        return ExprValue(IRBuilder.CreateNot(Operand.Value));
+        return ExprValue(IRBuilder.CreateNot(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
     ExprValue BitwiseNot::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise NOT operator \"~\" only returns right-values.");
@@ -964,7 +1010,7 @@ namespace ast {
     ExprValue Division::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateDiv(LHS, RHS, Gen));
+        return ExprValue(CreateDiv(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue Division::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Division operator \"/\" only returns right-values.");
@@ -975,7 +1021,7 @@ namespace ast {
     ExprValue Multiplication::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateMul(LHS, RHS, Gen));
+        return ExprValue(CreateMul(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue Multiplication::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Multiplication operator \"*\" only returns right-values.");
@@ -986,7 +1032,7 @@ namespace ast {
     ExprValue Modulo::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateMod(LHS, RHS, Gen));
+        return ExprValue(CreateMod(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue Modulo::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Modulo operator \"%\" only returns right-values.");
@@ -997,7 +1043,7 @@ namespace ast {
     ExprValue Addition::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateAdd(LHS, RHS, Gen));
+        return ExprValue(CreateAdd(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue Addition::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Addition operator \"+\" only returns right-values.");
@@ -1008,7 +1054,7 @@ namespace ast {
     ExprValue Subtraction::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateSub(LHS, RHS, Gen));
+        return ExprValue(CreateSub(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue Subtraction::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Subtraction operator \"-\" only returns right-values.");
@@ -1019,7 +1065,7 @@ namespace ast {
     ExprValue LeftShift::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateShl(LHS, RHS, Gen));
+        return ExprValue(CreateShl(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue LeftShift::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Left shifting operator \"<<\" only returns right-values.");
@@ -1030,7 +1076,7 @@ namespace ast {
     ExprValue RightShift::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateShr(LHS, RHS, Gen));
+        return ExprValue(CreateShr(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue RightShift::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Right shifting operator \">>\" only returns right-values.");
@@ -1237,7 +1283,7 @@ namespace ast {
     ExprValue BitwiseAND::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateBitwiseAND(LHS, RHS, Gen));
+        return ExprValue(CreateBitwiseAND(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue BitwiseAND::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise AND operator \"&\" only returns right-values.");
@@ -1248,7 +1294,7 @@ namespace ast {
     ExprValue BitwiseXOR::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateBitwiseXOR(LHS, RHS, Gen));
+        return ExprValue(CreateBitwiseXOR(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue BitwiseXOR::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise XOR operator \"^\" only returns right-values.");
@@ -1259,7 +1305,7 @@ namespace ast {
     ExprValue BitwiseOR::codegen(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegen(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateBitwiseOR(LHS, RHS, Gen));
+        return ExprValue(CreateBitwiseOR(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
     ExprValue BitwiseOR::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Bitwise OR operator \"|\" only returns right-values.");
@@ -1318,7 +1364,8 @@ namespace ast {
         ExprValue True = this->_Then->codegen(Gen);
         ExprValue False = this->_Else->codegen(Gen);
         if (True.Value->getType() == False.Value->getType() || TypeUpgrading(True.Value, False.Value)) {
-            return ExprValue(IRBuilder.CreateSelect(Condition.Value, True.Value, False.Value));
+            return ExprValue(IRBuilder.CreateSelect(Condition.Value, True.Value, False.Value), True.Name, True.IsConst,
+                True.IsInnerConstPointer || False.IsInnerConstPointer, True.IsPointingToInnerConst);
         }
         else {
             throw std::domain_error("Thernary operand \" ? : \" using unsupported type combination.");
@@ -1342,21 +1389,24 @@ namespace ast {
 
     //DirectAssign, e.g. x=y
     ExprValue DirectAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue DirectAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
-        return ExprValue(CreateAssignment(LHS, RHS, Gen));
+        return ExprValue(CreateAssignment(LHS, RHS, Gen), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //DivAssign, e.g. x/=y
     ExprValue DivAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue DivAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
         ExprValue RHS = this->_RHS->codegen(Gen);
+
         return ExprValue(CreateAssignment(LHS,
             ExprValue(CreateDiv(
                 ExprValue(IRBuilder.CreateLoad(
@@ -1365,12 +1415,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //MulAssign, e.g. x*=y
     ExprValue MulAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue MulAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1383,12 +1434,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //ModAssign, e.g. x%=y
     ExprValue ModAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue ModAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1401,12 +1453,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //AddAssign, e.g. x+=y
     ExprValue AddAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue AddAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1419,12 +1472,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //SubAssign, e.g. x-=y
     ExprValue SubAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue SubAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1437,12 +1491,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //SHLAssign, e.g. x<<=y
     ExprValue SHLAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue SHLAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1455,12 +1510,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //SHRAssign, e.g. x>>=y
     ExprValue SHRAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue SHRAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1473,12 +1529,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //BitwiseANDAssign, e.g. x&=y
     ExprValue BitwiseANDAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue BitwiseANDAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1491,12 +1548,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //BitwiseXORAssign, e.g. x^=y
     ExprValue BitwiseXORAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue BitwiseXORAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1509,12 +1567,13 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //BitwiseORAssign, e.g. x|=y
     ExprValue BitwiseORAssign::codegen(CodeGenerator& Gen) {
-        return ExprValue(CreateLoad(this->codegenPtr(Gen).Value, Gen));
+        ExprValue ExprVal = this->codegenPtr(Gen);
+        return ExprValue(CreateLoad(ExprVal.Value, Gen), ExprVal.Name, ExprVal.IsConst, ExprVal.IsInnerConstPointer, ExprVal.IsPointingToInnerConst);
     }
     ExprValue BitwiseORAssign::codegenPtr(CodeGenerator& Gen) {
         ExprValue LHS = this->_LHS->codegenPtr(Gen);
@@ -1527,7 +1586,7 @@ namespace ast {
                 RHS,
                 Gen)),
             Gen
-        ));
+        ), LHS.Name, LHS.IsConst, LHS.IsInnerConstPointer || RHS.IsInnerConstPointer, LHS.IsPointingToInnerConst);
     }
 
     //Comma expression, e.g. a,b,c,1
@@ -1562,13 +1621,19 @@ namespace ast {
     ExprValue Constant::codegen(CodeGenerator& Gen) {
         switch (this->_Type) {
         case BuiltInType::TypeID::_Bool:
-            return ExprValue(IRBuilder.getInt1(this->_Bool));
+            return ExprValue(IRBuilder.getInt1(this->_Bool), "", true, false, false);
         case BuiltInType::TypeID::_Char:
-            return ExprValue(IRBuilder.getInt8(this->_Character));
+            return ExprValue(IRBuilder.getInt8(this->_Character), "", true, false, false);
         case BuiltInType::TypeID::_Int:
-            return ExprValue(IRBuilder.getInt32(this->_Integer));
+        {
+            auto ret = ExprValue(IRBuilder.getInt32(this->_Integer), "", true, false, false);
+            if (this->_Integer == 0) {
+                ret.SetIsZeroConstant();
+            }
+            return ret;
+        }
         case BuiltInType::TypeID::_Double:
-            return ExprValue(llvm::ConstantFP::get(IRBuilder.getDoubleTy(), this->_Real));
+            return ExprValue(llvm::ConstantFP::get(IRBuilder.getDoubleTy(), this->_Real), "", true, false, false);
         default:
             throw std::logic_error("Unknown constant type.");
             return ExprValue();
@@ -1581,7 +1646,7 @@ namespace ast {
 
     //Global string, e.g. "123", "3\"124\t\n"
     ExprValue GlobalString::codegen(CodeGenerator& Gen) {
-        return ExprValue(IRBuilder.CreateGlobalStringPtr(this->_Content.c_str()));
+        return ExprValue(IRBuilder.CreateGlobalStringPtr(this->_Content.c_str()), "", true, false, false);
     }
     ExprValue GlobalString::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Global string (constant) is a right-value.");

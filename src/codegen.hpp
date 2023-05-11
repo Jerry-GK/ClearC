@@ -83,11 +83,11 @@ public:
     AddFunctionReseult AddFunction(std::string Name, ast::MyFunction* Function);
 
     //Find the llvm::Type* instance for the given name
-    llvm::Type* FindType(std::string Name);
+    ast::MyType* FindType(std::string Name);
 
     //Add a type to the current symbol table
     //If an old value exists (i.e., conflict), return false
-    bool AddType(std::string Name, llvm::Type* Type);
+    bool AddType(std::string Name, ast::MyType* Type);
 
     //Find variable
     ExprValue* FindVariable(std::string Name);
@@ -103,10 +103,10 @@ public:
     bool AddStructType(llvm::StructType* Ty1, ast::StructType* Ty2);
 
     //Set current function
-    void SetCurFunction(llvm::Function* Func);
+    void SetCurFunction(ast::MyFunction* Func);
 
     //Get the current function
-    llvm::Function* GetCurrentFunction(void);
+    ast::MyFunction* GetCurrentFunction(void);
 
     //Called whenever entering a loop
     void EnterLoop(llvm::BasicBlock* ContinueBB, llvm::BasicBlock* BreakBB);
@@ -134,10 +134,10 @@ private:
     public:
         Symbol(void) : Content(NULL), Type(UNDEFINED) {}
         Symbol(ast::MyFunction* Func) : Content(Func), Type(FUNCTION) {}
-        Symbol(llvm::Type* Ty) : Content(Ty), Type(TYPE) {}
+        Symbol(ast::MyType* Ty) : Content(Ty), Type(TYPE) {}
         Symbol(ExprValue* exprVal) : Content(exprVal), Type(VARIABLE) {}
         ast::MyFunction* GetFunction(void) { return this->Type == FUNCTION ? (ast::MyFunction*)Content : NULL; }
-        llvm::Type* GetType(void) { return this->Type == TYPE ? (llvm::Type*)Content : NULL; }
+        ast::MyType* GetType(void) { return this->Type == TYPE ? (ast::MyType*)Content : NULL; }
         ExprValue* GetVariable(void) { return this->Type == VARIABLE ? (ExprValue*)Content : NULL; }
 
     private:
@@ -154,7 +154,7 @@ private:
 
 private:
     llvm::DataLayout* DL;								//Data layout
-    llvm::Function* CurFunction;						//Current function
+    ast::MyFunction* CurFunction;						//Current function
     StructTypeTable* StructTyTable;						//Struct type table
     std::vector<SymbolTable*> SymbolTableStack;			//Symbol table
     std::vector<llvm::BasicBlock*> ContinueBlockStack;	//Store blocks for "continue" statement
