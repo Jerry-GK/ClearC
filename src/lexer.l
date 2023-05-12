@@ -81,6 +81,7 @@ char EscapeOfChar(char ch){
 "struct"												{return STRUCT;}
 "typedef"												{return TYPEDEF;}
 "typecast"												{return TYPECAST;}
+"this"													{return THIS;}
 "const"													{return CONST;}
 "ptr"													{return PTR;}
 "dptr"                                                  {return DPTR;} 

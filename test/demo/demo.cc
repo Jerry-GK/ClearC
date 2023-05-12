@@ -1,41 +1,46 @@
 func printf(ptr<char>, ...) -> int;
 func scanf(ptr<char>, ...) -> int;
 
-typedef Student struct {
-    const int x;
-};
-
-typedef Teacher struct {
-    int x;
-};
-
-
-typedef varType int;
-
-
-func f(ptr<int> p)-> ptr<int> {
-    if p[0] > 1{
-        return p;
-    }
-    else {
-        return null;
-    }
-}
 
 typedef Point struct {
     int x;
-    int y;
-    const int cval;
 };
 
-func main() -> int {
-    const Point p;
-    //p.x = 1; //illegal
-    ptr<const Point> pp = addr(p);
-    //pp->y = 1; //illegal
+typedef Student struct {
+    int x;
+};
 
-    Point p1;
-    p1.cval = 1; //illegal
+func Point : SetX(int x) -> void {
+    this->x = x;
+    return;
+}
+
+// func SetX(const ptr<Point> this, int x) -> void {
+//     this->x = x;
+//     return;
+// }
+
+func Point : GetX() -> int {
+    return this->x;
+}
+
+func Point : PrintX() -> void {
+    printf("Point's x = %d\n", this->x);
+    return;
+}
+
+func main() -> int {
+    Point p;
+    ptr<Point> pp = addr(p);
+
+
+    Student s;
+    ptr<Student> sp = addr(s);
+
+    p.SetX(37);
+    int x = p.GetX();
+    printf("%d\n", x);
+    pp->PrintX();
 
     return 0;
 }

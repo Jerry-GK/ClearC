@@ -1,130 +1,113 @@
-# include <stdio.h>
-# include <string.h>
-# include <stdlib.h>
+func printf(ptr<char>, ...) -> int;
+func scanf(ptr<char>, ...) -> int;
+func malloc(long)->ptr<void>;
+func strlen(ptr<char>) -> int;
 
-// int printf(char ptr, ...);
-// int scanf(char ptr, ...);
-
-//a calculator for expressions(which may have +, -, *, /, (, )), using stack
-int calculate(char* exp) {
-
-}
-
-int main() {
-    char exp[100];
-    scanf("%s", exp);
-
-    int result = calculate(exp);
-    printf("%d", result);
-}
-
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-// 定义操作符的优先级
-#define ADD_SUB_PRIORITY 1
-#define MUL_DIV_PRIORITY 2
-
-// 定义栈的最大容量
-#define MAX_STACK_SIZE 100
-
-// 定义操作符栈的结构体
-typedef struct {
-    char data[MAX_STACK_SIZE];
-    int top;
-} OperatorStack;
-
-// 定义操作数栈的结构体
-typedef struct {
-    int data[MAX_STACK_SIZE];
-    int top;
-} OperandStack;
-
-// 初始化操作符栈
-void initOperatorStack(OperatorStack* stack) {
-    stack->top = -1;
-}
-
-// 初始化操作数栈
-void initOperandStack(OperandStack* stack) {
-    stack->top = -1;
-}
-
-// 将操作符入栈
-void pushOperator(OperatorStack* stack, char op) {
-    if (stack->top == MAX_STACK_SIZE - 1) {
-        printf("Error: Operator stack is full.\n");
-        exit(1);
+func get_num(ptr<ptr<char> > p) -> int {
+    //printf("%s\n", dptr(p));
+    int num = 0;
+    //printf("**p = %c\n", dptr(dptr(p)));
+    for dptr(dptr(p)) >= '0' && dptr(dptr(p)) <= '9' {
+        num = num * 10 + (dptr(dptr(p)) - '0');
+        //printf("**p = %c\n", dptr(dptr(p)));
+        dptr(p) = dptr(p) + sizeof(char);
     }
-    stack->data[++stack->top] = op;
+    //printf("num = %d\n", num);
+    return num;
 }
 
-// 将操作数入栈
-void pushOperand(OperandStack* stack, int num) {
-    if (stack->top == MAX_STACK_SIZE - 1) {
-        printf("Error: Operand stack is full.\n");
-        exit(1);
+func get_term(ptr<ptr<char> > p) -> int {
+    int left = get_num(p);
+    for dptr(dptr(p)) == '*' || dptr(dptr(p)) == '/' {
+        char op = dptr(dptr(p));
+        dptr(p) = dptr(p) + sizeof(char);
+        int right = get_num(p);
+        if op == '*' {
+            left *= right;
+        }
+        else {
+            left /= right;
+        }
     }
-    stack->data[++stack->top] = num;
+    return left;
 }
 
-// 从操作符栈弹出一个操作符
-char popOperator(OperatorStack* stack) {
-    if (stack->top == -1) {
-        printf("Error: Operator stack is empty.\n");
-        exit(1);
+func calculate(ptr<char> expr) -> int {
+    ptr<char> p = expr;
+    int left = get_term(addr(p));
+    for dptr(p) != '\0' && dptr(p) != ')' {
+        char op = dptr(p);
+        p = p + sizeof(char);
+        int right = get_term(addr(p));
+        if op == '+' {
+            left += right;
+        }
+        else {
+            left -= right;
+        }
     }
-    return stack->data[stack->top--];
+    return left;
 }
 
-// 从操作数栈弹出一个操作数
-int popOperand(OperandStack* stack) {
-    if (stack->top == -1) {
-        printf("Error: Operand stack is empty.\n");
-        exit(1);
-    }
-    return stack->data[stack->top--];
+func main() -> int {
+    array<char, 100> expr;
+    //ptr<char> expr;
+    //expr = typecast(malloc(sizeof(char) * 100), ptr<char>);
+    scanf("%s", expr);
+    printf("%d\n", calculate(expr));
+    return 0;
 }
 
-// 判断一个字符是否为操作符
-int isOperator(char ch) {
-    return ch == '+' || ch == '-' || ch == '*' || ch == '/';
-}
 
-// 获取操作符的优先级
-int getPriority(char op) {
-    if (op == '*' || op == '/') {
-        return MUL_DIV_PRIORITY;
-    } else if (op == '+' || op == '-') {
-        return ADD_SUB_PRIORITY;
-    } else {
-        return 0;
-    }
-}
+// C Version
+// #include <stdio.h>
+// #include <stdlib.h>
 
-// 执行操作符栈顶的操作符
-void evaluateTopOperator(OperatorStack* operatorStack, OperandStack* operandStack) {
-    char op = popOperator(operatorStack);
-    int operand2 = popOperand(operandStack);
-    int operand1 = popOperand(operandStack);
-    int result;
-    switch (op) {
-        case '+':
-            result = operand1 + operand2;
-            break;
-        case '-':
-            result = operand1 - operand2;
-            break;
-        case '*':
-            result = operand1 * operand2;
-            break;
-        case '/':
-            result = operand1 / operand2;
-            break;
-        default:
-            printf("Error: Invalid operator.\n");
-            exit(1);
-    }
+// int get_num(char** ptr) {
+//     int num = 0;
+//     while (**ptr >= '0' && **ptr <= '9') {
+//         num = num * 10 + (**ptr - '0');
+//         (*ptr)++;
+//     }
+//     return num;
+// }
+
+// int get_term(char** ptr) {
+//     int left = get_num(ptr);
+//     while (**ptr == '*' || **ptr == '/') {
+//         char op = **ptr;
+//         (*ptr)++;
+//         int right = get_num(ptr);
+//         if (op == '*') {
+//             left *= right;
+//         }
+//         else {
+//             left /= right;
+//         }
+//     }
+//     return left;
+// }
+
+// int calculate(char* expr) {
+//     char* ptr = expr;
+//     int left = get_term(&ptr);
+//     while (*ptr != '\0' && *ptr != ')') {
+//         char op = *ptr;
+//         ptr++;
+//         int right = get_term(&ptr);
+//         if (op == '+') {
+//             left += right;
+//         }
+//         else {
+//             left -= right;
+//         }
+//     }
+//     return left;
+// }
+
+// int main() {
+//     char expr[100];
+//     scanf("%s", expr);
+//     printf("%d\n", calculate(expr));
+//     return 0;
+// }

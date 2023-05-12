@@ -178,6 +178,7 @@ namespace ast {
     class Variable;
     class Constant;
     class GlobalString;
+    class This;
 
     class MyFunction;
 }
@@ -227,15 +228,19 @@ namespace ast {
     class FuncDecl : public Decl {
     public:
         VarType* _RetType;
-        std::string _Name;
+        std::string _FuncName;
 
         ArgList* _ArgList;
+
+        std::string _TypeName; //TypeName is empty for function without base type
 
         //Funcbody is NULL for declaration
         FuncBody* _FuncBody;
 
-        FuncDecl(VarType* __RetType, const std::string& __Name, ArgList* __ArgList, FuncBody* __FuncBody = NULL) :
-            _RetType(__RetType), _Name(__Name), _ArgList(__ArgList), _FuncBody(__FuncBody) {}
+
+
+        FuncDecl(VarType* __RetType, const std::string& __FuncName, ArgList* __ArgList, const std::string& __TypeName = "", FuncBody* __FuncBody = NULL) :
+            _RetType(__RetType), _FuncName(__FuncName), _ArgList(__ArgList), _TypeName(__TypeName), _FuncBody(__FuncBody) {}
         ~FuncDecl(void) {}
         ExprValue codegen(CodeGenerator& Gen);
         std::string astJson();
@@ -639,7 +644,10 @@ namespace ast {
     public:
         std::string _FuncName;
         ExprList* _ArgList;
-        FunctionCall(const std::string& __FuncName, ExprList* __ArgList) : _FuncName(__FuncName), _ArgList(__ArgList) {}
+        Expr* _StructRef;
+        Expr* _StructPtr;
+        FunctionCall(const std::string& __FuncName, ExprList* __ArgList, Expr* __StructRef = NULL, Expr* __StructPtr = NULL) :
+            _FuncName(__FuncName), _ArgList(__ArgList), _StructRef(__StructRef), _StructPtr(__StructPtr) {}
         ~FunctionCall(void) {}
         ExprValue codegen(CodeGenerator& Gen);
         ExprValue codegenPtr(CodeGenerator& Gen);
@@ -1161,18 +1169,29 @@ namespace ast {
         std::string astJson();
     };
 
+    class This : public Expr {
+    public:
+        This(void) {}
+        ~This(void) {}
+        ExprValue codegen(CodeGenerator& Gen);
+        ExprValue codegenPtr(CodeGenerator& Gen);
+        std::string astJson();
+    };
+
 
     // to record ArgList
     class MyFunction {
     public:
-        explicit MyFunction(llvm::Function* _f, ArgList* _a, VarType* _r) :
+        explicit MyFunction(llvm::Function* _f, ArgList* _a, VarType* _r, std::string _t) :
             LLVMFunc(_f),
             Args(_a),
-            RetType(_r) {}
+            RetType(_r),
+            TypeName(_t) {}
 
         llvm::Function* LLVMFunc;
         ArgList* Args;
         VarType* RetType;
+        std::string TypeName;
     };
 
     // to record Fileds for struct

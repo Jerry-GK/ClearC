@@ -9,3 +9,5 @@
 [23-5-11] : Outer-const and inner-const implemented
 
 [23-5-11] : Typecast and code refactor
+
+[23-5-12] : OOP(member function and `this` pointer) implemented.

@@ -170,6 +170,7 @@ llvm::BasicBlock* CodeGenerator::GetBreakBlock(void) {
 llvm::BasicBlock* CodeGenerator::GetEmptyBB(void) {
     return this->EmptyBB;
 }
+
 void CodeGenerator::GenerateIRCode(ast::Program& Root, const std::string& OptimizeLevel) {
     //Initialize symbol table
     this->StructTyTable = new StructTypeTable;

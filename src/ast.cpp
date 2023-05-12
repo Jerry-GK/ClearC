@@ -16,11 +16,30 @@ namespace ast {
         //Set the argument type list. We need to call "GetLLVMType"
         //to change ast::VarType* type to llvm::Type* type
         std::vector<llvm::Type*> ArgTypes;
+        bool HasBaseType = !this->_TypeName.empty();
+
+        //push a const ptr<Type> into ArgTypes if the function's TypeName is not empty
+        if (HasBaseType) {
+            MyType* MyTy = Gen.FindType(this->_TypeName);
+            if (!MyTy) {
+                throw std::logic_error("Define a function " + this->_FuncName + " belongs to unknown base type " + this->_TypeName);
+                return ExprValue();
+            }
+
+            auto LLVMType = MyTy->LLVMType;
+            if (!LLVMType->isStructTy()) {
+                throw std::logic_error("Define a function " + this->_FuncName + " whose base type " + this->_TypeName + " is not a struct type.");
+                return ExprValue();
+            }
+            auto LLVMPointerType = llvm::PointerType::get(LLVMType, 0U);
+            ArgTypes.push_back(LLVMPointerType);
+        }
+
         bool isVoidArgs = false;
         for (auto ArgType : *(this->_ArgList)) {
             llvm::Type* LLVMType = ArgType->_VarType->GetLLVMType(Gen);
             if (!LLVMType) {
-                throw std::logic_error("Define a function " + this->_Name + " using unknown type(s).");
+                throw std::logic_error("Define a function " + this->_FuncName + " using unknown type(s).");
                 return ExprValue();
             }
             //Check if it is a "void" type
@@ -29,61 +48,63 @@ namespace ast {
             //not allow to use array type as function argument
             if (LLVMType->isArrayTy())
             {
-                throw std::logic_error("Define a function " + this->_Name + " with array type argument, which is not allowed.");
+                throw std::logic_error("Define a function " + this->_FuncName + " with array type argument, which is not allowed.");
                 return ExprValue();
             }
             ArgTypes.push_back(LLVMType);
         }
         //Throw an exception if #args >= 2 and the function has a "void" argument.
-        if (ArgTypes.size() != 1 && isVoidArgs) {
-            throw std::logic_error("Function " + this->_Name + " has invalid number of arguments with type \"void\".");
+        if (this->_ArgList->size() != 1 && isVoidArgs) {
+            throw std::logic_error("Function " + this->_FuncName + " has invalid number of arguments with type \"void\".");
             return ExprValue();
         }
         //Clear the arg list of the function only has one "void" arg.
         if (isVoidArgs)
-            ArgTypes.clear();
+            ArgTypes.pop_back();
 
         //Get return type
         llvm::Type* RetType = this->_RetType->GetLLVMType(Gen);
         if (RetType->isArrayTy()) {
-            throw std::logic_error("Function " + this->_Name + " returns array type, which is not allowed.");
+            throw std::logic_error("Function " + this->_FuncName + " returns array type, which is not allowed.");
             return ExprValue();
         }
         //Get function type
         llvm::FunctionType* FuncType = llvm::FunctionType::get(RetType, ArgTypes, this->_ArgList->_VarArg);
+
         //Create function
-        llvm::Function* Func = llvm::Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage, this->_Name, Gen.Module);
-        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList, this->_RetType);
-        auto ret = Gen.AddFunction(this->_Name, MyFunc); //add function into symbol table
+        llvm::Function* Func = llvm::Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage, this->_FuncName, Gen.Module);
+        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList, this->_RetType, this->_TypeName);
+        auto ret = Gen.AddFunction(this->_FuncName, MyFunc); //add function into symbol table
+
         if (ret == ADDFUNC_NAMECONFLICT) {
-            throw std::logic_error("Naming conflict for function: " + this->_Name);
+            throw std::logic_error("Naming conflict for function: " + this->_FuncName);
             return ExprValue();
         }
         else if (ret == ADDFUNC_ERROR) {
             //unexpected error
-            throw std::logic_error("Unexpected error when adding function: " + this->_Name);
+            throw std::logic_error("Unexpected error when adding function: " + this->_FuncName);
             return ExprValue();
         }
 
         //function has been declared or defined
-        if (Func->getName() != this->_Name) {
+        if (Func->getName() != this->_FuncName) {
             //Delete the one we just made and get the existing one.
             Func->eraseFromParent();
-            Func = Gen.Module->getFunction(this->_Name);
+            Func = Gen.Module->getFunction(this->_FuncName);
 
             if (!this->_FuncBody)
             {
-                throw std::logic_error("Redeclare function \"" + this->_Name + "\" which has been declared or defined.");
+                throw std::logic_error("Redeclare function \"" + this->_FuncName + "\" which has been declared or defined.");
                 return ExprValue();
             }
             //redefine
             if (!Func->empty()) {
-                throw std::logic_error("Redefine function \"" + this->_Name + "\" which has been defined.");
+                throw std::logic_error("Redefine function \"" + this->_FuncName + "\" which has been defined.");
                 return ExprValue();
             }
             //define the function with conflict arg types with the previous declaration
             if (Func->getFunctionType() != FuncType) {
-                throw std::logic_error("Define function \"" + this->_Name + "\" which has conflict arg types with the previous declaration.");
+                throw std::logic_error("Define function \"" + this->_FuncName + "\" which has conflict arg types with the previous declaration.");
                 return ExprValue();
             }
             //(declare and) define a function which has been declared is allowed, ignore the second declaration
@@ -97,21 +118,38 @@ namespace ast {
             //Create allocated space for arguments.
             Gen.PushSymbolTable();	//This variable table is only used to store the arguments of the function
             size_t Index = 0;
-            for (auto ArgIter = Func->arg_begin(); ArgIter < Func->arg_end(); ArgIter++, Index++) {
+            auto ArgIter = Func->arg_begin();
+            if (HasBaseType)
+            {
+                //add hidden this pointer
+                auto Alloca = CreateEntryBlockAlloca(Func, "0this", ArgIter->getType());
+                auto ExprVal = new ExprValue(Alloca, "", true, false);
+                //Assign the value by "store" instruction
+                IRBuilder.CreateStore(ArgIter, Alloca);
+                //Add to the symbol table
+                if (!Gen.AddVariable("0this", ExprVal))
+                {
+                    throw std::logic_error("Cannot add this pointer in function " + this->_FuncName);
+                    delete ExprVal;
+                    return ExprValue();
+                }
+                ArgIter++;
+            }
+            for (; ArgIter < Func->arg_end(); ArgIter++, Index++) {
                 //Create alloca
                 auto ArgVarType = this->_ArgList->at(Index)->_VarType;
                 bool isInnerConst = false;
                 if (ArgVarType->isPointerType()) {
                     isInnerConst = ((PointerType*)ArgVarType)->isInnerConst();
                 }
-                auto Alloca = CreateEntryBlockAlloca(Func, this->_ArgList->at(Index)->_Name, ArgTypes[Index]);
+                auto Alloca = CreateEntryBlockAlloca(Func, this->_ArgList->at(Index)->_Name, ArgIter->getType());
                 auto ExprVal = new ExprValue(Alloca, "", ArgVarType->_isConst, isInnerConst);
                 //Assign the value by "store" instruction
                 IRBuilder.CreateStore(ArgIter, Alloca);
                 //Add to the symbol table
                 if (!Gen.AddVariable(this->_ArgList->at(Index)->_Name, ExprVal))
                 {
-                    throw std::logic_error("Naming conflict or redefinition for local variable: " + this->_ArgList->at(Index)->_Name + "in the args list of function " + this->_Name);
+                    throw std::logic_error("Naming conflict or redefinition for local variable: " + this->_ArgList->at(Index)->_Name + " in the args list of function " + this->_FuncName);
                     delete ExprVal;
                     return ExprValue();
                 }
@@ -690,17 +728,59 @@ namespace ast {
             return ExprValue();
         }
         llvm::Function* Func = MyFunc->LLVMFunc;
+        bool HasBaseType = !MyFunc->TypeName.empty();
         auto Args = MyFunc->Args;
+
         //Check the number of args. If Func took a different number of args, reject.
-        if (Func->isVarArg() && this->_ArgList->size() < Func->arg_size() ||
-            !Func->isVarArg() && this->_ArgList->size() != Func->arg_size()) {
-            throw std::invalid_argument("Args doesn't match when calling function " + this->_FuncName + ". Expected " + std::to_string(Func->arg_size()) + ", got " + std::to_string(this->_ArgList->size()));
+        if (Func->isVarArg() && this->_ArgList->size() + HasBaseType < Func->arg_size() ||
+            !Func->isVarArg() && this->_ArgList->size() + HasBaseType != Func->arg_size()) {
+            throw std::invalid_argument("Args doesn't match when calling function " + this->_FuncName +
+                ". Expected " + std::to_string(Func->arg_size()) + ", got " + std::to_string(this->_ArgList->size() + HasBaseType));
             return ExprValue();
         }
-        //Check arg types. If Func took different different arg types, reject.
+
         std::vector<llvm::Value*> ArgList;
+
+        if (HasBaseType) {
+            auto BaseType = Func->arg_begin()->getType();
+            if (this->_StructRef) {
+                ExprValue StructPtr = this->_StructRef->codegenPtr(Gen);
+                if (!StructPtr.Value->getType()->isPointerTy()) {
+                    throw std::invalid_argument("Expected a struct reference when calling method " + this->_FuncName + ".");
+                    return ExprValue();
+                }
+                if (StructPtr.Value->getType() != BaseType) {
+                    throw std::invalid_argument("Expected a struct reference of type " + MyFunc->TypeName + " when calling method " + this->_FuncName + ".");
+                    return ExprValue();
+                }
+                StructPtr.Value = TypeCasting(StructPtr, BaseType, Gen);
+                ArgList.push_back(StructPtr.Value);
+            }
+            else if (this->_StructPtr) {
+                ExprValue StructPtr = this->_StructPtr->codegen(Gen);
+                if (!StructPtr.Value->getType()->isPointerTy()) {
+                    throw std::invalid_argument("Expected a struct pointer when calling method " + this->_FuncName + ".");
+                    return ExprValue();
+                }
+                if (StructPtr.Value->getType() != BaseType) {
+                    throw std::invalid_argument("Expected a struct pointer of type " + MyFunc->TypeName + " when calling method " + this->_FuncName + ".");
+                    return ExprValue();
+                }
+                StructPtr.Value = TypeCasting(StructPtr, BaseType, Gen);
+                ArgList.push_back(StructPtr.Value);
+            }
+            else {
+                throw std::invalid_argument("Expected a struct reference or pointer when calling method " + this->_FuncName + ".");
+                return ExprValue();
+            }
+        }
+
         size_t Index = 0;
-        for (auto ArgIter = Func->arg_begin(); ArgIter < Func->arg_end(); ArgIter++, Index++) {
+        auto ArgIter = Func->arg_begin();
+        if (HasBaseType) {
+            ArgIter++;
+        }
+        for (; ArgIter < Func->arg_end(); ArgIter++, Index++) {
             ExprValue Arg = this->_ArgList->at(Index)->codegen(Gen);
             auto ArgType = Args->at(Index)->_VarType;
 
@@ -771,7 +851,7 @@ namespace ast {
                 isInnerConst = ((PointerType*)memType)->isInnerConst();
             }
             return ExprValue(IRBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices)
-                , "", false, isConst, isInnerConst);
+                , "", true, isConst, isInnerConst);
         }
         return ExprValue();
     }
@@ -784,7 +864,7 @@ namespace ast {
     ExprValue StructDereference::codegenPtr(CodeGenerator& Gen) {
         ExprValue StructPtr = this->_StructPtr->codegen(Gen);
         if (!StructPtr.Value->getType()->isPointerTy() || !StructPtr.Value->getType()->getNonOpaquePointerElementType()->isStructTy()) {
-            throw std::logic_error("Reference operator \".\" must be apply to structs.");
+            throw std::logic_error("Dereference operator \"->\" must be apply to structs.");
             return ExprValue();
         }
         //Since C language uses name instead of index to fetch the element inside a struct,
@@ -808,7 +888,7 @@ namespace ast {
                 isInnerConst = ((PointerType*)memType)->isInnerConst();
             }
             return ExprValue(IRBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices)
-                , "", false, isConst, isInnerConst);
+                , "", true, isConst, isInnerConst);
         }
         return ExprValue();
     }
@@ -1610,7 +1690,7 @@ namespace ast {
     }
     ExprValue Variable::codegenPtr(CodeGenerator& Gen) {
         const ExprValue* VarPtr = Gen.FindVariable(this->_Name);
-        if (VarPtr) return ExprValue(VarPtr->Value, VarPtr->Name, false,
+        if (VarPtr) return ExprValue(VarPtr->Value, VarPtr->Name, true,
             VarPtr->IsConst, VarPtr->IsInnerConstPointer);
 
         throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable");
@@ -1650,6 +1730,24 @@ namespace ast {
     }
     ExprValue GlobalString::codegenPtr(CodeGenerator& Gen) {
         throw std::logic_error("Global string (constant) is a right-value.");
+        return ExprValue();
+    }
+
+    ExprValue This::codegen(CodeGenerator& Gen) {
+        const ExprValue* ThisPtr = Gen.FindVariable("0this");
+        if (ThisPtr) {
+            return ExprValue(CreateLoad(ThisPtr->Value, Gen), ThisPtr->Name, true, false);
+        }
+        throw std::logic_error("Using \"this\" but not in a member function.");
+        return ExprValue();
+    }
+
+    ExprValue This::codegenPtr(CodeGenerator& Gen) {
+        const ExprValue* ThisPtr = Gen.FindVariable("0this");
+        if (ThisPtr) {
+            return ExprValue(ThisPtr->Value, ThisPtr->Name, true, true);
+        }
+        throw std::logic_error("Using \"this\" but not in a member function.");
         return ExprValue();
     }
 }

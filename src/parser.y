@@ -66,7 +66,7 @@ ast::Program *Root;
 		ARROW BXOREQ BXOR BNOT
 		DADD ADDEQ ADD DSUB SUBEQ SUB
 		MULEQ MUL DIVEQ DIV MODEQ MOD
-		FUNC STRUCT TYPEDEF TYPECAST CONST PTR ARRAY DPTR ADDR
+		FUNC STRUCT TYPEDEF TYPECAST THIS CONST PTR ARRAY DPTR ADDR
 		IF ELSE FOR SWITCH CASE DEFAULT 
 		BREAK CONTINUE RETURN SIZEOF TRUE FALSE NULL_
 		BOOL SHORT INT LONG CHAR FLOAT DOUBLE VOID
@@ -142,7 +142,9 @@ Decl:		FuncDecl												{  $$ = $1;   }
 			;
 
 FuncDecl:	FUNC IDENTIFIER LPAREN ArgList RPAREN ARROW VarType SEMI 	{  $$ = new ast::FuncDecl($7,*$2,$4);   }
-			| FUNC IDENTIFIER LPAREN ArgList RPAREN ARROW VarType FuncBody {  $$ = new ast::FuncDecl($7,*$2,$4,$8);   }
+			| FUNC IDENTIFIER LPAREN ArgList RPAREN ARROW VarType FuncBody {  $$ = new ast::FuncDecl($7,*$2,$4,"",$8);   }
+			| FUNC IDENTIFIER COLON IDENTIFIER LPAREN ArgList RPAREN ARROW VarType SEMI {  $$ = new ast::FuncDecl($9,*$4,$6,*$2);   }
+			| FUNC IDENTIFIER COLON IDENTIFIER LPAREN ArgList RPAREN ARROW VarType FuncBody {  $$ = new ast::FuncDecl($9,*$4,$6,*$2,$10);   }
 			;
 
 FuncBody:	LBRACE Stmts RBRACE										{  $$ = new ast::FuncBody($2);   }
@@ -277,6 +279,8 @@ Expr:		Expr LBRACKET Expr RBRACKET %prec ARROW					{  $$ = new ast::Subscript($1
 			| SIZEOF LPAREN Expr RPAREN								{  $$ = new ast::SizeOf($3);   }
 			| SIZEOF LPAREN VarType RPAREN							{  $$ = new ast::SizeOf($3);   }
 			| IDENTIFIER LPAREN ExprList RPAREN						{  $$ = new ast::FunctionCall(*$1,$3);   }
+			| Expr DOT IDENTIFIER LPAREN ExprList RPAREN			{  $$ = new ast::FunctionCall(*$3,$5,$1,NULL);   }
+			| Expr ARROW IDENTIFIER LPAREN ExprList RPAREN			{  $$ = new ast::FunctionCall(*$3,$5,NULL,$1);   }
 			| Expr DOT IDENTIFIER									{  $$ = new ast::StructReference($1,*$3);   }
 			| Expr ARROW IDENTIFIER									{  $$ = new ast::StructDereference($1,*$3);   }
 			| ADD Expr	%prec NOT									{  $$ = new ast::UnaryPlus($2);   }
@@ -324,6 +328,7 @@ Expr:		Expr LBRACKET Expr RBRACKET %prec ARROW					{  $$ = new ast::Subscript($1
 			| IDENTIFIER											{  $$ = new ast::Variable(*$1);   } 
 			| Constant												{  $$ = $1;   }												
 			| Expr COMMA Expr										{  $$ = new ast::CommaExpr($1, $3);   }
+			| THIS													{  $$ = new ast::This();   }
 			;
 
 ExprList:	_ExprList COMMA Expr									{  $$ = $1; $$->push_back($3);   }

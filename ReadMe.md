@@ -2,11 +2,15 @@
 
 <img src="assets/image-20230430132636411.png" alt="image-20230430132636411" style="zoom:20%;" />
 
+## Introduction
+
 **A Compiler for ClearC, a Simplified but More Clear C Language with some Go Features.**
 
-It's initial framework and inspiration come from [C-Compiler](https://github.com/YJJfish/C-Compiler). Many new features are added, such as clearer grammar, `const` constraint and  functions in OOP style.
+ClearC has a **clearer grammar**(especially on pointers), relatively complete **const** constraints, and  functions in **OOP** style.
 
-To be finished.
+**Current Version: 1.0**
+
+
 
 ## Language Features
 
@@ -283,47 +287,88 @@ To be finished.
 
       
 
-11. OOP (to do)
+11. OOP (Encapsulation)
 
-   We want to make the OOP style like golang.
+      We want to make the OOP style like golang, but a little different.
 
-   - Should the struct pointer be anonymous?
-   - Should we use `class A{}` to represent `typedef struct{} A`?
+     `func BaseType : funcname(args list) -> return type {funcbody}`
 
-   ```c
-   typedef Student struct {
-     int id;
-     array<char, 10> name;
-   };
-   
-   func Student::SetName(array<char, 10> name) -> void {
-   	Student.name = name; 
-   }
-   //func Student::SetName(ptr<Student> anonymous, array<char, 10> name) -> void {
-   	//anonymous->name = name;
-   //}
-   
-   func Student::GetId() -> int {
-   	return Student.id;
-   }
-   //func Student::GetId(ptr<Student> anonymous) -> int {
-   	//return anonymous->id;
-   //}
-   
-    Student s;
-    s.SetName("Duck");
-   
-    ptr<Student> ps = addr(s);
-    int sid = ps->GetId();
-   ```
+        ```c
+     typedef Student struct {
+       int id;
+     	float score;
+     };
+     
+     func Student : SetScore(float score) -> void {
+     	this->score = score; 
+     }
+     //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+     	//this->name = name;
+     //}
+     
+     func Student : GetId() -> int {
+     	return this->id;
+     }
+     //func GetId(const ptr<Student> this) -> int {
+     	//return this->id;
+     //}
+     
+      Student s;
+      s.SetScore(95);
+     
+      ptr<Student> ps = addr(s);
+      int sid = ps->GetId();
+        ```
+
+     - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+
+     - The basetype must be a struct type defined by programmers.
+
+     - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+
+     - Call a member function of other types(structs) will raise semantic error.
+
+     - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+
+     - Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.
+
+         
 
 11. String (to do)
 
     Should we make **string** a primitive data type? Maybe not.
 
+    Array<char, len> cannot be initialize by literal string such as "hello", this is a huge problem.
+
 12. Function Declaration (To do)
 
     We think function declarations is redundant and unnecessary, so we want to elimate them.
+
+    But we do not pre-scan the AST, so it's difficult.
+
+    
+
+## Language Limitations
+
+1. Compiler internally does NOT manage TYPES clearly, it's kind of confused.
+
+2. No direct initialization method for structs.
+
+3. No direct initialization method for arrays. Arrays cannot be passed as function arguments.
+
+    Statement like `array<char, 10> str = "hello"`  is not supported.
+
+4. No restriction on pointer assignment between different base types (compiler cannot detect that).
+
+    This can be very dangerous if abused.
+
+5. No package manager and only support single source code file.
+
+6. No built-in allocator.
+
+7. Member functions of different base types can NOT have the same name. This is bad for encapsulation.
+
+
 
 ## Compile Procedure
 
@@ -349,10 +394,21 @@ make
 ./<target file name>
 ```
 
-## Reference
+## Test
+
+There are some example source code files (name ended by `.cc`) in folders of `./test/`
+
+You can compile and run them for test.
+
+The root also has some test script for linux / macos.
+
+## References
 
 - The lexer, parser, ast and visualization module of this project have given me great help [C-Compiler](https://github.com/YJJfish/C-Compiler).
-- The [LLVM Tutorial](https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl03.html).
+
+    It's where the initial framework and inspiration come from, some implementations of that project have been referenced. Many thanks to the author.
+
+- The [LLVM Tutorial](https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl03.html). (official documents)
 
 
 

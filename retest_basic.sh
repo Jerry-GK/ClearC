@@ -8,8 +8,8 @@ make -j
 
 cd ..
 
-# try demoName for "test_prime", "test_matrix", "test_hanoi", "test_lcs"
-for demoName in "test_prime" "test_matrix" "test_hanoi" "test_lcs"; do
+# try demoName for "test_prime", "test_matrix", "test_hanoi", "test_lcs", "test_arithmetic"
+for demoName in "test_prime" "test_matrix" "test_hanoi" "test_lcs" "test_arithmetic"; do
     demoFileName=$demoName".cc"
     ./build/clearc ./${demoFilePath}/${demoFileName} ./test/bin/obj
     gcc ./test/bin/obj -o ./test/bin/${demoName}.out

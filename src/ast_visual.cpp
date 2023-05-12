@@ -87,7 +87,7 @@ void Program::genHTML(std::string FileName) {
 string FuncDecl::astJson() {
     vector<string> children;
     children.push_back(getJson("Return Type", _RetType->astJson()));
-    children.push_back(getJson("Function Name", getJson(_Name)));
+    children.push_back(getJson("Function Name", getJson(_FuncName)));
     vector<string> argListJson;
     for (auto& x : *_ArgList)
         argListJson.push_back(x->astJson());
@@ -699,3 +699,11 @@ string BuiltInType::astJson() {
         break;
     }
 }
+
+
+string This::astJson() {
+    vector<string> children;	//children node json
+    children.push_back(getJson("this"));
+    return getJson("This", children);
+}
+

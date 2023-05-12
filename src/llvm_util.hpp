@@ -47,7 +47,7 @@ llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type, CodeGenerator& Gen
 	}
 	else if (Value->getType()->isIntegerTy() && Type->isPointerTy()) {
 		if (!ExprVal.IsZeroConstant) {
-			throw std::logic_error("Type cast failed: pointer can only be casted from integer constant null (or 0)");
+			throw std::logic_error("Type cast failed: pointer <- integer, integer can only be constant null (or 0)");
 			return NULL;
 		}
 		return IRBuilder.CreateIntToPtr(Value, Type);
