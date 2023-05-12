@@ -27,14 +27,18 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
    `[]` is still available to dereference based on bias.
 
-   example.
+   **Pointers can NOT do self-increment/decrement in ClearC**. Pointer calculation is also not recommended.
 
+   example.
+   
    ```c
    int a = 1;
    ptr<int> pa = addr(a);
    dptr(pa) = dptr(pa) + 1; //or pa[0] = pa[0] + 1;
+   pa++; //illegal
    ```
-
+   
+   
 3. **Array**:
 
    array in ClearC has very limited functionality.
@@ -144,6 +148,7 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
        - Cannot assign ptr<`const`> to ptr which is not inner-const. Function with ptr<`const`> argument can neither receive non-inner-const pointer.
        - Cannot type cast a ptr<`const`> to a non-inner-const pointer.
+       - Array type variable wil be regarded as outer-const pointer.
 
    ```c
    const varType v = val_0; //this var cannot be modified
@@ -289,50 +294,76 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 11. OOP (Encapsulation)
 
-      We want to make the OOP style like golang, but a little different.
+       We want to make the OOP style like golang, but a little different.
 
-     `func BaseType : funcname(args list) -> return type {funcbody}`
+      `func BaseType : funcname(args list) -> return type {funcbody}`
 
-        ```c
-     typedef Student struct {
-       int id;
-     	float score;
-     };
      
-     func Student : SetScore(float score) -> void {
-     	this->score = score; 
-     }
-     //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
-     	//this->name = name;
-     //}
-     
-     func Student : GetId() -> int {
-     	return this->id;
-     }
-     //func GetId(const ptr<Student> this) -> int {
-     	//return this->id;
-     //}
-     
-      Student s;
-      s.SetScore(95);
-     
-      ptr<Student> ps = addr(s);
-      int sid = ps->GetId();
-        ```
 
-     - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+      typedef Student struct {
+        int id;
+      	float score;
+      };
 
-     - The basetype must be a struct type defined by programmers.
+      func Student : SetScore(float score) -> void {
+      	this->score = score; 
+      }
+      //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+      	//this->name = name;
+      //}
 
-     - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+      func Student : GetId() -> int {
+      	return this->id;
+      }
+      //func GetId(const ptr<Student> this) -> int {
+      	//return this->id;
+      //}
 
-     - Call a member function of other types(structs) will raise semantic error.
+       Student s;
+       s.SetScore(95);
 
-     - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
-
-     - Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.
-
+       ptr<Student> ps = addr(s);
+       int sid = ps->GetId();
+         ```c
+         typedef Student struct {
+         	int id;
+         	float score;
+         };
          
+         func Student : SetScore(float score) -> void {
+         	this->score = score; 
+         }
+         //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+         	//this->name = name;
+         //}
+         
+         func Student : GetId() -> int {
+         	return this->id;
+         }
+         //func GetId(const ptr<Student> this) -> int {
+         	//return this->id;
+         //}
+         
+         Student s;
+         s.SetScore(95);
+         
+         ptr<Student> ps = addr(s);
+         int sid = ps->GetId();
+         ```
+
+      - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+
+      - The basetype must be a struct type defined by programmers.
+
+      - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+
+      - Call a member function of other types(structs) will raise semantic error.
+
+      - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+
+      - Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.
+
+          
 
 11. String (to do)
 
@@ -352,13 +383,13 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 1. Compiler internally does NOT manage TYPES clearly, it's kind of confused.
 
-2. No direct initialization method for structs.
+2. **No direct initialization method for structs.**
 
-3. No direct initialization method for arrays. Arrays cannot be passed as function arguments.
+3. **No direct initialization method for arrays.** Arrays cannot be passed as function arguments.
 
     Statement like `array<char, 10> str = "hello"`  is not supported.
 
-4. No restriction on pointer assignment between different base types (compiler cannot detect that).
+4. **No restriction on pointer assignment between different base types** (compiler cannot detect that).
 
     This can be very dangerous if abused.
 
@@ -366,7 +397,9 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 6. No built-in allocator.
 
-7. Member functions of different base types can NOT have the same name. This is bad for encapsulation.
+7. **Member functions of different base types can NOT have the same name.** This is bad for encapsulation. 
+
+    **There are also NO private/public constraint for members variables or functions for structs.**
 
 
 

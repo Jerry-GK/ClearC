@@ -9,7 +9,7 @@
 
 void yyerror(char *s) {
     extern int yylineno;
-    printError("[Syntax Error]: " + std::string(s) + " at line " + std::to_string(yylineno));
+    PrintError("[Syntax Error]: " + std::string(s) + " at line " + std::to_string(yylineno));
 	std::exit(1); 
 }
 

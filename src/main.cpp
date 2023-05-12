@@ -10,10 +10,10 @@ extern int yyparse();
 extern ast::Program* Root;
 
 int main(int argc, const char* argv[]) {
-    printMsg("[ClearC --Version1.0]");
+    PrintMsg("[ClearC --Version1.0]");
 
     if (argc != 3) {
-        printError("[Command Error]: Usage: " + string(argv[0]) + " <sourcefilename> <objectfilename>");
+        PrintError("[Command Error]: Usage: " + string(argv[0]) + " <sourcefilename> <objectfilename>");
         return 1;
     }
 
@@ -24,15 +24,15 @@ int main(int argc, const char* argv[]) {
     string OptimizeLevel = "";
 
     if (!freopen(InputFile.c_str(), "r", stdin)) { //read file into stdin
-        printError("[File Error]: Cannot open " + InputFile);
+        PrintError("[File Error]: Cannot open " + InputFile);
         return 1;
     }
 
-    printMsg("[Success]: Compiling \"" + InputFile + "\" ...");
+    PrintMsg("[Success]: Compiling \"" + InputFile + "\" ...");
 
     yyparse(); //parse the input file read into stdin, and generate ast
 
-    printMsg("[Success]: Parse successfully");
+    PrintMsg("[Success]: Parse successfully");
 
     if (GenVisual) {
         Root->genHTML(VisualizationFile);
@@ -46,20 +46,20 @@ int main(int argc, const char* argv[]) {
         Gen.GenerateIRCode(*Root, OptimizeLevel);
     }
     catch (const std::exception& e) {
-        printError("[Semantic Error]: " + string(e.what()));
+        PrintError("[Semantic Error]: " + string(e.what()));
         return 1;
     }
-    printMsg("[Success]: IR code generated successfully");
+    PrintMsg("[Success]: IR code generated successfully");
 
 
     //generate and verify IR
     bool IRValid = true;
     if (GenIR) {
         IRValid = Gen.OutputIR(LLVMIRCodeFile);
-        printMsg("[Success]: IR code output successfully");
+        PrintMsg("[Success]: IR code output successfully");
     }
     if (!IRValid) {
-        printError("[IR Error]: Look at the IR code for details");
+        PrintError("[IR Error]: Look at the IR code for details");
         return 1;
     }
 
@@ -67,10 +67,10 @@ int main(int argc, const char* argv[]) {
         Gen.GenObjectCode(OutputObjectFile);
     }
     catch (const std::exception& e) {
-        printError("[Codegen Error]: " + string(e.what()));
+        PrintError("[Codegen Error]: " + string(e.what()));
         return 1;
     }
-    printMsg("[Success]: Object code generated successfully, output file: \"" + OutputObjectFile + "\"");
+    PrintMsg("[Success]: Object code generated successfully, output file: \"" + OutputObjectFile + "\"");
 
     return 0;
 }

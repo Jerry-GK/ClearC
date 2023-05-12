@@ -73,18 +73,6 @@ namespace ast {
 
         //Create function
         llvm::Function* Func = llvm::Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage, this->_FuncName, Gen.Module);
-        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList, this->_RetType, this->_TypeName);
-        auto ret = Gen.AddFunction(this->_FuncName, MyFunc); //add function into symbol table
-
-        if (ret == ADDFUNC_NAMECONFLICT) {
-            throw std::logic_error("Naming conflict for function: " + this->_FuncName);
-            return ExprValue();
-        }
-        else if (ret == ADDFUNC_ERROR) {
-            //unexpected error
-            throw std::logic_error("Unexpected error when adding function: " + this->_FuncName);
-            return ExprValue();
-        }
 
         //function has been declared or defined
         if (Func->getName() != this->_FuncName) {
@@ -103,12 +91,54 @@ namespace ast {
                 return ExprValue();
             }
             //define the function with conflict arg types with the previous declaration
+            auto MyFunc = Gen.FindFunction(this->_FuncName);
+            if (!MyFunc)
+            {
+                throw std::logic_error("Unexpected error when getting function \"" + this->_FuncName + "\".");
+                return ExprValue();
+            }
+            for (int i = 0;i < this->_ArgList->size();i++) {
+                auto prevArgType = MyFunc->Args->at(i)->_VarType;
+                auto curArgType = this->_ArgList->at(i)->_VarType;
+                bool TypeSame = prevArgType->_LLVMType->getTypeID() == curArgType->_LLVMType->getTypeID();
+                bool IsConstSame = prevArgType->_isConst == curArgType->_isConst;
+                bool prevIsInnerConst = false;
+                if (prevArgType->isPointerType()) {
+                    prevIsInnerConst = ((PointerType*)prevArgType)->isInnerConst();
+                }
+                bool curIsInnerConst = false;
+                if (curArgType->isPointerType()) {
+                    curIsInnerConst = ((PointerType*)curArgType)->isInnerConst();
+                }
+                bool IsInnerConstSame = prevIsInnerConst == curIsInnerConst;
+
+                if (!(TypeSame && IsConstSame && IsInnerConstSame)) {
+                    throw std::logic_error("Define function \"" + this->_FuncName + "\" which has conflict arg type of the "
+                        + std::to_string(i + 1) + "'th arg with the previous declaration.");
+                    return ExprValue();
+                }
+            }
+            //this "redundant" check is necessary for check more detailed type conflict
             if (Func->getFunctionType() != FuncType) {
                 throw std::logic_error("Define function \"" + this->_FuncName + "\" which has conflict arg types with the previous declaration.");
                 return ExprValue();
             }
             //(declare and) define a function which has been declared is allowed, ignore the second declaration
         }
+
+
+        ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList, this->_RetType, this->_TypeName);
+        auto ret = Gen.AddFunction(this->_FuncName, MyFunc); //add function into symbol table
+        if (ret == ADDFUNC_NAMECONFLICT) {
+            throw std::logic_error("Naming conflict for function: " + this->_FuncName);
+            return ExprValue();
+        }
+        else if (ret == ADDFUNC_ERROR) {
+            //unexpected error
+            throw std::logic_error("Unexpected error when adding function: " + this->_FuncName);
+            return ExprValue();
+        }
+        // ret == ADDFUNC_DECLARED is normal, ignore this redeclaration
 
         //If this function has a body, generate its body's code.
         if (this->_FuncBody) {
@@ -143,7 +173,7 @@ namespace ast {
                     isInnerConst = ((PointerType*)ArgVarType)->isInnerConst();
                 }
                 auto Alloca = CreateEntryBlockAlloca(Func, this->_ArgList->at(Index)->_Name, ArgIter->getType());
-                auto ExprVal = new ExprValue(Alloca, "", ArgVarType->_isConst, isInnerConst);
+                auto ExprVal = new ExprValue(Alloca, "", ArgVarType->_isConst || ArgVarType->isArrayType(), isInnerConst);
                 //Assign the value by "store" instruction
                 IRBuilder.CreateStore(ArgIter, Alloca);
                 //Add to the symbol table
@@ -154,6 +184,7 @@ namespace ast {
                     return ExprValue();
                 }
             }
+
             //Generate code of the function body
             Gen.SetCurFunction(MyFunc);
             Gen.PushSymbolTable();
@@ -161,6 +192,8 @@ namespace ast {
             Gen.PopSymbolTable();
             Gen.SetCurFunction(NULL);
             Gen.PopSymbolTable();	//We need to pop out an extra variable table.
+
+            return ExprValue();
         }
         return ExprValue();
     }
@@ -209,7 +242,7 @@ namespace ast {
                     isInnerConst = ((PointerType*)this->_VarType)->isInnerConst();
                 }
                 auto Alloca = CreateEntryBlockAlloca(Gen.GetCurrentFunction()->LLVMFunc, NewVar->_Name, VarType);
-                auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst, isInnerConst);
+                auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst || this->_VarType->isArrayType(), isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, ExprVal)) {
                     throw std::logic_error("Naming conflict or redefinition for local variable: " + NewVar->_Name);
                     Alloca->eraseFromParent();
@@ -293,7 +326,7 @@ namespace ast {
                     Initializer,
                     NewVar->_Name
                 );
-                auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst, isInnerConst);
+                auto ExprVal = new ExprValue(Alloca, "", this->_VarType->_isConst || this->_VarType->isArrayType(), isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, ExprVal)) {
                     throw std::logic_error("Naming conflict or redefinition for global variable: " + NewVar->_Name);
                     Alloca->eraseFromParent();
@@ -723,6 +756,7 @@ namespace ast {
     ExprValue FunctionCall::codegen(CodeGenerator& Gen) {
         //Get the function. Throw exception if the function doesn't exist.
         ast::MyFunction* MyFunc = Gen.FindFunction(this->_FuncName);
+        auto curMyFunc = Gen.GetCurrentFunction();
         if (MyFunc == NULL) {
             throw std::domain_error(this->_FuncName + " is not a defined function.");
             return ExprValue();
@@ -735,7 +769,7 @@ namespace ast {
         if (Func->isVarArg() && this->_ArgList->size() + HasBaseType < Func->arg_size() ||
             !Func->isVarArg() && this->_ArgList->size() + HasBaseType != Func->arg_size()) {
             throw std::invalid_argument("Args doesn't match when calling function " + this->_FuncName +
-                ". Expected " + std::to_string(Func->arg_size()) + ", got " + std::to_string(this->_ArgList->size() + HasBaseType));
+                ". Expected " + std::to_string(Func->arg_size() - HasBaseType) + ", got " + std::to_string(this->_ArgList->size()));
             return ExprValue();
         }
 
@@ -877,6 +911,7 @@ namespace ast {
                 throw std::logic_error("The struct doesn't have a member whose name is \"" + this->_MemName + "\".");
                 return ExprValue();
             }
+
             std::vector<llvm::Value*> Indices;
             Indices.push_back(IRBuilder.getInt32(0));
             Indices.push_back(IRBuilder.getInt32(MemIndex));
@@ -961,10 +996,9 @@ namespace ast {
         ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
-            OpValue.Value->getType()->isFloatingPointTy() ||
-            OpValue.Value->getType()->isPointerTy())
+            OpValue.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Prefix increment must be applied to integers, floating-point numbers or pointers.");
+            throw std::logic_error("Prefix increment must be applied to integers or floating-point numbers.");
         ExprValue OpValuePlus = ExprValue(CreateAdd(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
         return ExprValue(Operand);
@@ -980,10 +1014,9 @@ namespace ast {
         ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
-            OpValue.Value->getType()->isFloatingPointTy() ||
-            OpValue.Value->getType()->isPointerTy())
+            OpValue.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Postfix increment must be applied to integers, floating-point numbers or pointers.");
+            throw std::logic_error("Postfix increment must be applied to integers or floating-point numbers");
         ExprValue OpValuePlus = ExprValue(CreateAdd(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
         return ExprValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
@@ -1007,10 +1040,9 @@ namespace ast {
         ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
-            OpValue.Value->getType()->isFloatingPointTy() ||
-            OpValue.Value->getType()->isPointerTy())
+            OpValue.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Prefix decrement must be applied to integers, floating-point numbers or pointers.");
+            throw std::logic_error("Prefix decrement must be applied to integers or floating-point numbers.");
         ExprValue OpValueMinus = ExprValue(CreateSub(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
         return ExprValue(Operand);
@@ -1026,10 +1058,9 @@ namespace ast {
         ExprValue OpValue = ExprValue(IRBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
         if (!(
             OpValue.Value->getType()->isIntegerTy() ||
-            OpValue.Value->getType()->isFloatingPointTy() ||
-            OpValue.Value->getType()->isPointerTy())
+            OpValue.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Postfix decrement must be applied to integers, floating-point numbers or pointers.");
+            throw std::logic_error("Postfix decrement must be applied to integers or floating-point numbers");
         ExprValue OpValueMinus = ExprValue(CreateSub(OpValue, ExprValue(IRBuilder.getInt1(1)), Gen));
         IRBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
         return ExprValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);

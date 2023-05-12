@@ -1,44 +1,57 @@
+// ClearC
+// Written in OOP style
+
 func printf(ptr<char>, ...) -> int;
 func scanf(ptr<char>, ...) -> int;
 func malloc(long)->ptr<void>;
-func strlen(ptr<char>) -> int;
+func free(ptr<void>) -> void;
+func strlen(ptr<const char>) -> int;
+func strcpy(ptr<char> dest, ptr<const char> src)->ptr<char>;
 
-func get_num(ptr<ptr<char> > p) -> int {
-    //printf("%s\n", dptr(p));
-    int num = 0;
-    //printf("**p = %c\n", dptr(dptr(p)));
-    for dptr(dptr(p)) >= '0' && dptr(dptr(p)) <= '9' {
-        num = num * 10 + (dptr(dptr(p)) - '0');
-        //printf("**p = %c\n", dptr(dptr(p)));
-        dptr(p) = dptr(p) + sizeof(char);
-    }
-    //printf("num = %d\n", num);
-    return num;
+// Declaration
+typedef Calculator struct {
+    ptr<char> expr;
+};
+func Calculator : ReadExpr(const ptr<const char> expr) -> void;
+func Calculator : Calc() -> int;
+func Calculator : getNum(ptr<ptr<const char> > p) -> int;
+func Calculator : getTerm(ptr<ptr<const char> > p) -> int;
+
+// main
+func main() -> int {
+    Calculator c;
+    c.expr = null;
+
+    array<char, 100> expr;
+    scanf("%s", expr);
+    c.ReadExpr(expr);
+    int result = c.Calc();
+
+    ptr<const char> pc;
+    c.ReadExpr(pc);
+
+    printf("%d\n", result);
+    return 0;
 }
 
-func get_term(ptr<ptr<char> > p) -> int {
-    int left = get_num(p);
-    for dptr(dptr(p)) == '*' || dptr(dptr(p)) == '/' {
-        char op = dptr(dptr(p));
-        dptr(p) = dptr(p) + sizeof(char);
-        int right = get_num(p);
-        if op == '*' {
-            left *= right;
-        }
-        else {
-            left /= right;
-        }
+// Calculator implementation 
+func Calculator : ReadExpr(const ptr<const char> expr) -> void {
+    //deep copy
+    if this->expr != null {
+        free(this->expr);
     }
-    return left;
+    this->expr = typecast(malloc(sizeof(char) * (strlen(expr) + 1)), ptr<char>);
+    strcpy(this->expr, expr);
+    return;
 }
 
-func calculate(ptr<char> expr) -> int {
-    ptr<char> p = expr;
-    int left = get_term(addr(p));
+func Calculator : Calc() -> int {
+    ptr<const char> p = this->expr;
+    int left = this->getTerm(addr(p));
     for dptr(p) != '\0' && dptr(p) != ')' {
         char op = dptr(p);
         p = p + sizeof(char);
-        int right = get_term(addr(p));
+        int right = this->getTerm(addr(p));
         if op == '+' {
             left += right;
         }
@@ -49,13 +62,29 @@ func calculate(ptr<char> expr) -> int {
     return left;
 }
 
-func main() -> int {
-    array<char, 100> expr;
-    //ptr<char> expr;
-    //expr = typecast(malloc(sizeof(char) * 100), ptr<char>);
-    scanf("%s", expr);
-    printf("%d\n", calculate(expr));
-    return 0;
+func Calculator : getNum(ptr<ptr<const char> > p) -> int {
+    int num = 0;
+    for dptr(dptr(p)) >= '0' && dptr(dptr(p)) <= '9' {
+        num = num * 10 + (dptr(dptr(p)) - '0');
+        dptr(p) = dptr(p) + sizeof(char);
+    }
+    return num;
+}
+
+func Calculator : getTerm(ptr<ptr<const char> > p) -> int {
+    int left = this->getNum(p);
+    for dptr(dptr(p)) == '*' || dptr(dptr(p)) == '/' {
+        char op = dptr(dptr(p));
+        dptr(p) = dptr(p) + sizeof(char);
+        int right = this->getNum(p);
+        if op == '*' {
+            left *= right;
+        }
+        else {
+            left /= right;
+        }
+    }
+    return left;
 }
 
 
@@ -63,7 +92,7 @@ func main() -> int {
 // #include <stdio.h>
 // #include <stdlib.h>
 
-// int get_num(char** ptr) {
+// int getNum(char** ptr) {
 //     int num = 0;
 //     while (**ptr >= '0' && **ptr <= '9') {
 //         num = num * 10 + (**ptr - '0');
@@ -72,12 +101,12 @@ func main() -> int {
 //     return num;
 // }
 
-// int get_term(char** ptr) {
-//     int left = get_num(ptr);
+// int getTerm(char** ptr) {
+//     int left = getNum(ptr);
 //     while (**ptr == '*' || **ptr == '/') {
 //         char op = **ptr;
 //         (*ptr)++;
-//         int right = get_num(ptr);
+//         int right = getNum(ptr);
 //         if (op == '*') {
 //             left *= right;
 //         }
@@ -90,11 +119,11 @@ func main() -> int {
 
 // int calculate(char* expr) {
 //     char* ptr = expr;
-//     int left = get_term(&ptr);
+//     int left = getTerm(&ptr);
 //     while (*ptr != '\0' && *ptr != ')') {
 //         char op = *ptr;
 //         ptr++;
-//         int right = get_term(&ptr);
+//         int right = getTerm(&ptr);
 //         if (op == '+') {
 //             left += right;
 //         }
