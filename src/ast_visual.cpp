@@ -10,12 +10,8 @@ using namespace ast;
 extern const char* Html;
 
 string getString(string name) {
-    // s is our escaped output string
     std::string s = "";
-    // loop through all characters
     for (char c : name) {
-        // check if a given character is printable
-        // the cast is necessary to avoid undefined behaviour
         if (c == '\"' || c == '\'' || c == '\\')
             s = s + "\\" + c;
         else if (c == '\n')
@@ -28,25 +24,15 @@ string getString(string name) {
             s += c;
         else {
             std::stringstream stream;
-            // if the character is not printable
-            // we'll convert it to a hex string using a stringstream
-            // note that since char is signed we have to cast it to unsigned first
             stream << std::hex << (unsigned int)(unsigned char)(c);
             std::string code = stream.str();
             s += std::string("\\x") + (code.size() < 2 ? "0" : "") + code;
-            // alternatively for URL encodings:
-            //s += std::string("%")+(code.size()<2?"0":"")+code;
         }
     }
     return s;
 }
 
 string getJson(string name) {
-    //Escape twice.
-    //new line => "\\n" => "\\\\n"
-    //When printed out, it will be \\n
-    //double quote => "\\\"" => "\\\\\\\""
-    //When printed out, it will be \\\"
     return "{ \"name\" : \"" + getString(name) + "\" }";
 }
 
@@ -71,9 +57,7 @@ string Program::nodeJson() {
     vector<string> declJson;	//children node json
     for (auto x : *_Decls)
         declJson.push_back(x->nodeJson());
-    // children.push_back(getJson("Decls", declJson));
     return getJson("Program", declJson);
-    //return getJson("program",vector<string>{Decl->getJson()});
 }
 
 void Program::genHTML(std::string FileName) {
@@ -93,7 +77,7 @@ string FuncDecl::nodeJson() {
     vector<string> argListJson;
     for (auto& x : *_ArgList)
         argListJson.push_back(x->nodeJson());
-    if (_ArgList->_VarArg == true)
+    if (_ArgList->_DotsArg == true)
         argListJson.push_back(getJson("...", ""));
     children.push_back(getJson("ArgList", argListJson));
     if (_FuncBody != NULL)
@@ -102,9 +86,9 @@ string FuncDecl::nodeJson() {
 }
 
 string ArgList::nodeJson() {
-    if (_VarArg == true)
+    if (_DotsArg == true)
         return getJson("..", getJson("True"));
-    else if (_VarArg == false)
+    else if (_DotsArg == false)
         return getJson("..", getJson("False"));
 }
 
@@ -134,13 +118,6 @@ string VarInit::nodeJson() {
         //children.push_back(getJson("="));
         children.push_back(_InitialExpr->nodeJson());
     }
-    // if(_InitialConstant != NULL)
-    // {
-    // children.push_back(getJson("="));
-    // children.push_back(getJson("Initial Constant",_InitialConstant->nodeJson()));
-    // }
-    //children.push_back(_InitialExpr->nodeJson());
-    //children.push_back(_InitialConstant->nodeJson());
     return getJson("Varinit", children);
 }
 

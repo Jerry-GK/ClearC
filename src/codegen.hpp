@@ -31,12 +31,8 @@
 
 #include "ast.hpp"
 
-//The global context.
 extern llvm::LLVMContext GlobalContext;
 
-//A helper object that makes it easy to generate LLVM instructions.
-//It keeps track of the current place to insert instructions and
-//has methods to create new instructions.
 extern llvm::IRBuilder<> GlobalBuilder;
 
 //return type for AddFunction()
@@ -59,33 +55,32 @@ public:
     //Create and push an empty symbol table
     void PushSymbolTable(void);
 
-    //Remove the last symbol table
+    //Remove last symbol table
     void PopSymbolTable(void);
 
-    //Find the llvm::Function* instance for the given name
+    //Get function by name
     ast::MyFunction* FindFunction(std::string Name);
 
     //Add a function to the current symbol table
     AddFunctionReseult AddFunction(std::string Name, ast::MyFunction* Function);
 
-    //Find the llvm::Type* instance for the given name
+    //Find type
     ast::MyType* FindType(std::string Name);
 
     //Add a type to the current symbol table
-    //If an old value exists (i.e., conflict), return false
+    //return false if an old type exists
     bool AddType(std::string Name, ast::MyType* Type);
 
     //Find variable
     ast::MyValue* FindVariable(std::string Name);
 
     //Add a variable to the current symbol table
-    //If an old value exists (i.e., conflict), return false
     bool AddVariable(std::string Name, ast::MyValue* Variable);
 
-    //Find the ast::StructType* instance according to the llvm::StructType* instance
+    //Find struct type
     ast::StructType* FindStructType(llvm::StructType* Ty1);
 
-    //Add a <llvm::StructType*, ast::StructType*> mapping
+    //Add a struct type to the current symbol table
     bool AddStructType(llvm::StructType* Ty1, ast::StructType* Ty2);
 
     //Set current function
@@ -94,10 +89,10 @@ public:
     //Get the current function
     ast::MyFunction* GetCurFunction(void);
 
-    //Called whenever entering a loop
+    //Enter a loop
     void EnterLoop(llvm::BasicBlock* ContinueBB, llvm::BasicBlock* BreakBB);
 
-    //Called whenever leaving a loop
+    //Leave the current loop
     void LeaveLoop(void);
 
     //Get the destination block for "continue" statements
@@ -106,14 +101,19 @@ public:
     //Get the destination block for "break" statements
     llvm::BasicBlock* GetBreakBlock(void);
 
+    //Get the empty block(global variable declaration, always empty)
     llvm::BasicBlock* GetEmptyBB(void);
 
+    //Generate IR code(in Module)
     void GenerateIRCode(ast::Program& Root);
 
+    //Optimize IR code
     void OptimizeIRCode(const std::string& OptimizationLevel = "");
 
+    //Output IR code to file
     bool OutputIR(std::string FileName);
 
+    //Output object code(to file)
     void GenObjectCode(std::string FileName);
 
 
@@ -142,11 +142,11 @@ private:
 
 private:
     llvm::DataLayout* DataLayout;								//Data layout
-    ast::MyFunction* CurFunction;						//Current function
-    StructTable* StructTyTable;						//Struct type table
-    std::vector<SymbolTable*> SymbolTableStack;			//Symbol table
-    std::vector<llvm::BasicBlock*> ContinueBlockStack;	//Store blocks for "continue" statement
-    std::vector<llvm::BasicBlock*> BreakBlockStack;		//Store blocks for "break" statement
-    llvm::BasicBlock* EmptyBB;                          //Empty block for global variables
-    llvm::Function* EmptyFunc;                          //Empty function for EmptyBB
+    ast::MyFunction* CurFunction;						        //Current function
+    StructTable* StructTyTable;						            //Struct table
+    std::vector<SymbolTable*> SymbolTableStack;			        //Symbol table
+    std::vector<llvm::BasicBlock*> ContinueBlockStack;	        //Blocks for "continue" statement
+    std::vector<llvm::BasicBlock*> BreakBlockStack;		        //Blocks for "break" statement
+    llvm::BasicBlock* EmptyBB;                                  //Empty block for global variable declaration
+    llvm::Function* EmptyFunc;                                   //Empty function for EmptyBB
 };
