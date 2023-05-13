@@ -12,4 +12,8 @@
 
 [23-5-12] : OOP(member function and `this` pointer) implemented.
 
-[23-5-13] : Handle const arg type conflict while defining function which has been declared. Calculator example.
+[23-5-12] : Handle const arg type conflict while defining function which has been declared. Calculator example.
+
+[23-5-13] : IR optimization and command parser.
+
+[23-5-13] : Code refactor. Version 1.0 released.

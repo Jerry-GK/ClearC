@@ -243,13 +243,13 @@ void CodeGenerator::GenObjectCode(std::string FileName) {
     std::error_code err;
     llvm::raw_fd_ostream ostr(FileName, err, llvm::sys::fs::OF_None);
     if (err) {
-        throw std::runtime_error("Could not open file: " + err.message());
+        throw std::runtime_error("Can not open file: " + err.message());
         return;
     }
 
     llvm::legacy::PassManager pm;
     if (TargetMachine->addPassesToEmitFile(pm, ostr, nullptr, llvm::CGFT_ObjectFile)) {
-        throw std::runtime_error("TargetMachine can't emit a file of this type");
+        throw std::runtime_error("TargetMachine emit file failed");
         return;
     }
     pm.run(*Module);

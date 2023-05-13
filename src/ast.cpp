@@ -20,13 +20,13 @@ namespace ast {
         if (HasBaseType) {
             MyType* MyTy = Gen.FindType(this->_TypeName);
             if (!MyTy) {
-                throw std::logic_error("Define a function " + this->_FuncName + " belongs to unknown base type " + this->_TypeName);
+                throw std::logic_error("Declare function \"" + this->_FuncName + "\" belongs to unknown base type " + this->_TypeName);
                 return MyValue();
             }
 
             auto LLVMType = MyTy->LLVMType;
             if (!LLVMType->isStructTy()) {
-                throw std::logic_error("Define a function " + this->_FuncName + " whose base type " + this->_TypeName + " is not a struct type.");
+                throw std::logic_error("Declare function \"" + this->_FuncName + "\" whose base type " + this->_TypeName + " is not a known struct type");
                 return MyValue();
             }
             auto LLVMPointerType = llvm::PointerType::get(LLVMType, 0U);
@@ -37,21 +37,21 @@ namespace ast {
         for (auto ArgType : *(this->_ArgList)) {
             llvm::Type* LLVMType = ArgType->_VarType->GetLLVMType(Gen);
             if (!LLVMType) {
-                throw std::logic_error("Define a function " + this->_FuncName + " using unknown type(s).");
+                throw std::logic_error("Declare function \"" + this->_FuncName + "\" using unknown arg type(s)");
                 return MyValue();
             }
             if (LLVMType->isVoidTy())
                 isVoidArgs = true;
             if (LLVMType->isArrayTy())
             {
-                throw std::logic_error("Define a function " + this->_FuncName + " with array type argument, which is not allowed.");
+                throw std::logic_error("Declare function \"" + this->_FuncName + "\" with array type argument, which is not allowed");
                 return MyValue();
             }
             ArgTypes.push_back(LLVMType);
         }
 
         if (this->_ArgList->size() != 1 && isVoidArgs) {
-            throw std::logic_error("Function " + this->_FuncName + " has invalid number of arguments with type \"void\".");
+            throw std::logic_error("Declare function \"" + this->_FuncName + "\" which has invalid number of arguments with type \"void\"");
             return MyValue();
         }
 
@@ -61,7 +61,7 @@ namespace ast {
         //Get return type
         llvm::Type* RetType = this->_RetType->GetLLVMType(Gen);
         if (RetType->isArrayTy()) {
-            throw std::logic_error("Function " + this->_FuncName + " returns array type, which is not allowed.");
+            throw std::logic_error("Declare function \"" + this->_FuncName + "\" which returns array type, which is not allowed");
             return MyValue();
         }
         //Get function type
@@ -78,19 +78,19 @@ namespace ast {
 
             if (!this->_FuncBody)
             {
-                throw std::logic_error("Redeclare function \"" + this->_FuncName + "\" which has been declared or defined.");
+                throw std::logic_error("Redeclare function \"" + this->_FuncName + "\" which has been declared or defined");
                 return MyValue();
             }
             //redefine
             if (!Func->empty()) {
-                throw std::logic_error("Redefine function \"" + this->_FuncName + "\" which has been defined.");
+                throw std::logic_error("Redefine function \"" + this->_FuncName + "\" which has been defined");
                 return MyValue();
             }
             //define the function with conflict arg types with the previous declaration
             auto MyFunc = Gen.FindFunction(this->_FuncName);
             if (!MyFunc)
             {
-                throw std::logic_error("Unexpected error when getting function \"" + this->_FuncName + "\".");
+                throw std::logic_error("Unexpected error when getting function \"" + this->_FuncName + "\"");
                 return MyValue();
             }
             for (int i = 0;i < this->_ArgList->size();i++) {
@@ -110,13 +110,13 @@ namespace ast {
 
                 if (!(TypeSame && IsConstSame && IsInnerConstSame)) {
                     throw std::logic_error("Define function \"" + this->_FuncName + "\" which has conflict arg type of the "
-                        + std::to_string(i + 1) + "'th arg with the previous declaration.");
+                        + std::to_string(i + 1) + "'th arg with the previous declaration");
                     return MyValue();
                 }
             }
             //this "redundant" check is necessary for check more detailed type conflict
             if (Func->getFunctionType() != FuncType) {
-                throw std::logic_error("Define function \"" + this->_FuncName + "\" which has conflict arg types with the previous declaration.");
+                throw std::logic_error("Define function \"" + this->_FuncName + "\" which has conflict arg types with the previous declaration");
                 return MyValue();
             }
             //(declare and) define a function which has been declared is allowed, ignore the second declaration
@@ -126,12 +126,12 @@ namespace ast {
         ast::MyFunction* MyFunc = new ast::MyFunction(Func, this->_ArgList, this->_RetType, this->_TypeName);
         auto ret = Gen.AddFunction(this->_FuncName, MyFunc); //add function into symbol table
         if (ret == ADDFUNC_NAMECONFLICT) {
-            throw std::logic_error("Naming conflict for function: " + this->_FuncName);
+            throw std::logic_error("Naming conflict for function \"" + this->_FuncName + "\"");
             return MyValue();
         }
         else if (ret == ADDFUNC_ERROR) {
             //unexpected error
-            throw std::logic_error("Unexpected error when adding function: " + this->_FuncName);
+            throw std::logic_error("Unexpected error while adding function \"" + this->_FuncName + "\"");
             return MyValue();
         }
         // ret == ADDFUNC_DECLARED is normal, ignore this redeclaration
@@ -151,7 +151,7 @@ namespace ast {
                 //Add to the symbol table
                 if (!Gen.AddVariable("0this", MyVal))
                 {
-                    throw std::logic_error("Cannot add this pointer in function " + this->_FuncName);
+                    throw std::logic_error("Cannot add \"this\" pointer in function \"" + this->_FuncName + "\"");
                     delete MyVal;
                     return MyValue();
                 }
@@ -168,7 +168,8 @@ namespace ast {
                 GlobalBuilder.CreateStore(ArgIter, Alloca);
                 if (!Gen.AddVariable(this->_ArgList->at(Index)->_Name, MyVal))
                 {
-                    throw std::logic_error("Naming conflict or redefinition for local variable: " + this->_ArgList->at(Index)->_Name + " in the args list of function " + this->_FuncName);
+                    throw std::logic_error("Naming conflict or redefinition for local variable \""
+                        + this->_ArgList->at(Index)->_Name + "\" in the args list of function \"" + this->_FuncName + "\"");
                     delete MyVal;
                     return MyValue();
                 }
@@ -196,7 +197,7 @@ namespace ast {
                 Stmt->codegen(Gen);
         //return statement is needed for all functions, including void functions.
         if (!GlobalBuilder.GetInsertBlock()->getTerminator()) {
-            throw std::logic_error("Function does not have a return statement (void function needs return as well).");
+            throw std::logic_error("A function does not have a return statement (void function needs return as well)");
             return MyValue();
         }
         return MyValue();
@@ -207,11 +208,11 @@ namespace ast {
         //Get the llvm type
         llvm::Type* VarType = this->_VarType->GetLLVMType(Gen);
         if (VarType == NULL) {
-            throw std::logic_error("Define variables with unknown type.");
+            throw std::logic_error("Define variable with unknown type");
             return MyValue();
         }
         if (VarType->isVoidTy()) {
-            throw std::logic_error("Cannot define \"void\" variables.");
+            throw std::logic_error("Cannot define \"void\" variable");
             return MyValue();
         }
 
@@ -226,7 +227,7 @@ namespace ast {
                 auto Alloca = CreateEntryBlockAlloca(Gen.GetCurFunction()->LLVMFunc, NewVar->_Name, VarType);
                 auto MyVal = new MyValue(Alloca, "", this->_VarType->_isConst || this->_VarType->isArrayType(), isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, MyVal)) {
-                    throw std::logic_error("Naming conflict or redefinition for local variable: " + NewVar->_Name);
+                    throw std::logic_error("Naming conflict or redefinition for local variable \"" + NewVar->_Name + "\"");
                     Alloca->eraseFromParent();
                     delete MyVal;
                     return MyValue();
@@ -234,18 +235,18 @@ namespace ast {
 
                 if (NewVar->_InitialExpr) {
                     if (VarType->isArrayTy()) {
-                        throw std::logic_error("Initialize array variable \"" + NewVar->_Name + "\", which is not allowed.");
+                        throw std::logic_error("Initialize array variable \"" + NewVar->_Name + "\", which is not allowed");
                         return MyValue();
                     }
                     llvm::Value* Initializer = NULL;
                     MyValue InitialMyVal = NewVar->_InitialExpr->codegen(Gen);
                     if (InitialMyVal.IsInnerConstPointer && !isInnerConst) {
-                        throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer.");
+                        throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer \"" + NewVar->_Name + "\"");
                         return MyValue();
                     }
                     Initializer = TypeCasting(InitialMyVal, VarType, Gen);
                     if (Initializer == NULL) {
-                        throw std::logic_error("Initialize variable \"" + NewVar->_Name + "\" with value of conflict type.");
+                        throw std::logic_error("Initialize variable \"" + NewVar->_Name + "\" with value of conflict type");
                         return MyValue();
                     }
                     GlobalBuilder.CreateStore(Initializer, Alloca);
@@ -260,14 +261,14 @@ namespace ast {
                 llvm::Constant* Initializer = NULL;
                 if (NewVar->_InitialExpr) {
                     if (VarType->isArrayTy()) {
-                        throw std::logic_error("Initialize array variable \"" + NewVar->_Name + "\", which is not allowed.");
+                        throw std::logic_error("Initialize array variable \"" + NewVar->_Name + "\", which is not allowed");
                         return MyValue();
                     }
                     //Global variable must be initialized by a constant.
 
                     MyValue InitialMyVal = NewVar->_InitialExpr->codegen(Gen);
                     if (InitialMyVal.IsInnerConstPointer && !isInnerConst) {
-                        throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer.");
+                        throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer \"" + NewVar->_Name + "\"");
                         return MyValue();
                     }
 
@@ -278,11 +279,11 @@ namespace ast {
                     llvm::Value* InitialExpr = TypeCasting(NewVar->_InitialExpr->codegen(Gen), VarType, Gen);
                     //EmptyBB is used for detect whether the initial value is a constant!
                     if (GlobalBuilder.GetInsertBlock()->size() != 0) {
-                        throw std::logic_error("Initialize global variable " + NewVar->_Name + " with non-constant value.");
+                        throw std::logic_error("Initialize global variable \"" + NewVar->_Name + "\" with non-constant value");
                         return MyValue();
                     }
                     if (InitialExpr == NULL) {
-                        throw std::logic_error("Initialize variable " + NewVar->_Name + " with value of conflict type.");
+                        throw std::logic_error("Initialize variable \"" + NewVar->_Name + "\" with value of conflict type");
                         return MyValue();
                     }
 
@@ -304,7 +305,7 @@ namespace ast {
                 );
                 auto MyVal = new MyValue(Alloca, "", this->_VarType->_isConst || this->_VarType->isArrayType(), isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, MyVal)) {
-                    throw std::logic_error("Naming conflict or redefinition for global variable: " + NewVar->_Name);
+                    throw std::logic_error("Naming conflict or redefinition for global variable \"" + NewVar->_Name + "\"");
                     Alloca->eraseFromParent();
                     delete MyVal;
                     return MyValue();
@@ -322,7 +323,7 @@ namespace ast {
         else
             LLVMType = this->_VarType->GetLLVMType(Gen);
         if (!LLVMType) {
-            throw std::logic_error("Typedef " + this->_Alias + " using undefined types.");
+            throw std::logic_error("Typedef \"" + this->_Alias + "\" using undefined types");
             return MyValue();
         }
 
@@ -331,7 +332,7 @@ namespace ast {
             Fields = ((ast::StructType*)this->_VarType)->_StructBody;
         MyType* MyTy = new MyType(LLVMType, Fields);
         if (!Gen.AddType(this->_Alias, MyTy)) {
-            throw std::logic_error("Naming conflict or redefinition for type: " + this->_Alias);
+            throw std::logic_error("Naming conflict or redefinition for type \"" + this->_Alias + "\"");
             return MyValue();
         }
         if (this->_VarType->isStructType())
@@ -363,7 +364,7 @@ namespace ast {
             return this->_LLVMType;
         this->_LLVMType = Gen.FindType(this->_Name)->LLVMType;
         if (this->_LLVMType == NULL) {
-            throw std::logic_error("Undefined type: \"" + this->_Name + "\"");
+            throw std::logic_error("Undefined type \"" + this->_Name + "\"");
             return NULL;
         }
         else return this->_LLVMType;
@@ -382,12 +383,12 @@ namespace ast {
         if (this->_LLVMType)
             return this->_LLVMType;
         if (this->_BaseType->_isConst) {
-            throw std::logic_error("The base type of array cannot be const.");
+            throw std::logic_error("The base type of array cannot be const");
             return NULL;
         }
         llvm::Type* BaseType = this->_BaseType->GetLLVMType(Gen);
         if (BaseType->isVoidTy()) {
-            throw std::logic_error("The base type of array cannot be void.");
+            throw std::logic_error("The base type of array cannot be void");
             return NULL;
         }
         return this->_LLVMType = llvm::ArrayType::get(BaseType, this->_Length);
@@ -402,7 +403,7 @@ namespace ast {
         return this->GenerateStructTypeBody(Gen);
     }
     llvm::Type* StructType::GenerateStructTypeHead(CodeGenerator& Gen, const std::string& __Name) {
-        auto LLVMType = llvm::StructType::create(GlobalContext, "struct." + __Name);
+        auto LLVMType = llvm::StructType::create(GlobalContext, "struct" + __Name);
         Gen.AddStructType(LLVMType, this);
         return this->_LLVMType = LLVMType;
     }
@@ -410,7 +411,7 @@ namespace ast {
         std::vector<llvm::Type*> Members;
         for (auto FDecl : *(this->_StructBody))
             if (FDecl->_VarType->GetLLVMType(Gen)->isVoidTy()) {
-                throw std::logic_error("The member type of struct cannot be void.");
+                throw std::logic_error("The member type of struct cannot be void");
                 return NULL;
             }
             else
@@ -443,8 +444,8 @@ namespace ast {
     //If
     MyValue IfStmt::codegen(CodeGenerator& Gen) {
         MyValue Condition = this->_Condition->codegen(Gen);
-        if (!(Condition.Value = Cast2I1(Condition.Value))) {
-            throw std::logic_error("The condition value of if-statement must be either an integer, or a floating-point number, or a pointer.");
+        if (!(Condition.Value = CastToBool(Condition.Value))) {
+            throw std::logic_error("The condition expression of if-statement must be either integer, floating-point, or pointer type");
             return MyValue();
         }
         //Create "Then", "Else" and "Merge" block
@@ -495,8 +496,8 @@ namespace ast {
         GlobalBuilder.SetInsertPoint(ForCondBB);
         if (this->_Condition) {
             MyValue Condition = this->_Condition->codegen(Gen);
-            if (!(Condition.Value = Cast2I1(Condition.Value))) {
-                throw std::logic_error("The condition value of for-statement must be either an integer, or a floating-point number, or a pointer.");
+            if (!(Condition.Value = CastToBool(Condition.Value))) {
+                throw std::logic_error("The condition expression of for-statement must be either integer, floating-point, or pointer type");
                 return MyValue();
             }
             GlobalBuilder.CreateCondBr(Condition.Value, ForLoopBB, ForEndBB);
@@ -590,7 +591,7 @@ namespace ast {
         if (ContinueTarget)
             GlobalBuilder.CreateBr(ContinueTarget);
         else
-            throw std::logic_error("Continue statement should only be used in loops or switch statements.");
+            throw std::logic_error("Using \"continue\" not in a loop or switch block");
         return MyValue();
     }
 
@@ -600,7 +601,7 @@ namespace ast {
         if (BreakTarget)
             GlobalBuilder.CreateBr(BreakTarget);
         else
-            throw std::logic_error("Break statement should only be used in loops or switch statements.");
+            throw std::logic_error("Using \"break\" not a in a loop or switch block");
         return MyValue();
     }
 
@@ -608,14 +609,14 @@ namespace ast {
     MyValue ReturnStmt::codegen(CodeGenerator& Gen) {
         llvm::Function* Func = Gen.GetCurFunction()->LLVMFunc;
         if (!Func) {
-            throw std::logic_error("Return statement should only be used in function bodies.");
+            throw std::logic_error("Using \"return\" not in a function body");
             return MyValue();
         }
         if (this->_RetVal == NULL) {
             if (Func->getReturnType()->isVoidTy())
                 GlobalBuilder.CreateRetVoid();
             else {
-                throw std::logic_error("Expected an expression after return statement.");
+                throw std::logic_error("Expected an expression after return statement");
                 return MyValue();
             }
         }
@@ -626,13 +627,13 @@ namespace ast {
 
             if (MyVal.IsInnerConstPointer &&
                 !(RetType->isPointerType() && ((PointerType*)(RetType))->isInnerConst())) {
-                throw std::logic_error("Cannot return an inner-const pointer as non-inner-const pointer type.");
+                throw std::logic_error("Cannot return an inner-const pointer as non-inner-const pointer type");
                 return MyValue();
             }
 
             MyValue RetVal = MyValue(TypeCasting(MyVal, RetLLVMType, Gen));
             if (!RetVal.Value) {
-                throw std::logic_error("The type of return value doesn't match and cannot be cast to the return type.");
+                throw std::logic_error("The return value cannot be cast to the return type");
                 return MyValue();
             }
             GlobalBuilder.CreateRet(RetVal.Value);
@@ -648,12 +649,12 @@ namespace ast {
     MyValue Subscript::codegenPtr(CodeGenerator& Gen) {
         MyValue ArrayPtr = this->_Array->codegen(Gen);
         if (!ArrayPtr.Value->getType()->isPointerTy()) {
-            throw std::logic_error("Subscript operator \"[]\" must be applied to pointers or arrays.");
+            throw std::logic_error("Subscript operator \"[]\" must be applied to pointers or arrays");
             return MyValue();
         }
         MyValue Subspt = this->_Index->codegen(Gen);
         if (!(Subspt.Value->getType()->isIntegerTy())) {
-            throw std::logic_error("Subscription should be an integer.");
+            throw std::logic_error("Value in \"[]\" should be an integer");
             return MyValue();
         }
         return MyValue(CreateAdd(ArrayPtr, Subspt, Gen), ArrayPtr.Name, ArrayPtr.IsConst,
@@ -677,12 +678,12 @@ namespace ast {
                 this->_Arg1 = new Variable(this->_Arg3);
                 return MyValue(GlobalBuilder.getInt64(Gen.GetTypeSize(VarPtr->Value->getType()->getNonOpaquePointerElementType())));
             }
-            throw std::logic_error(this->_Arg3 + " is neither a type nor a variable.");
+            throw std::logic_error(this->_Arg3 + " is neither a type nor a variable");
             return MyValue();
         }
     }
     MyValue SizeOf::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Sizeof() only returns right-values.");
+        throw std::logic_error("Sizeof() returns a right value");
         return MyValue();
     }
 
@@ -691,7 +692,7 @@ namespace ast {
         ast::MyFunction* MyFunc = Gen.FindFunction(this->_FuncName);
         auto curMyFunc = Gen.GetCurFunction();
         if (MyFunc == NULL) {
-            throw std::domain_error(this->_FuncName + " is not a defined function.");
+            throw std::logic_error(this->_FuncName + " is not a defined function");
             return MyValue();
         }
         llvm::Function* Func = MyFunc->LLVMFunc;
@@ -701,7 +702,7 @@ namespace ast {
         //Check the arg number
         if (Func->isVarArg() && this->_ArgList->size() + HasBaseType < Func->arg_size() ||
             !Func->isVarArg() && this->_ArgList->size() + HasBaseType != Func->arg_size()) {
-            throw std::invalid_argument("Args doesn't match when calling function " + this->_FuncName +
+            throw std::invalid_argument("Args number doesn't match while calling function " + this->_FuncName +
                 ". Expected " + std::to_string(Func->arg_size() - HasBaseType) + ", got " + std::to_string(this->_ArgList->size()));
             return MyValue();
         }
@@ -713,11 +714,11 @@ namespace ast {
             if (this->_StructRef) {
                 MyValue StructPtr = this->_StructRef->codegenPtr(Gen);
                 if (!StructPtr.Value->getType()->isPointerTy()) {
-                    throw std::invalid_argument("Expected a struct reference when calling method " + this->_FuncName + ".");
+                    throw std::invalid_argument("Expected a struct reference when calling method \"" + this->_FuncName + "\"");
                     return MyValue();
                 }
                 if (StructPtr.Value->getType() != BaseType) {
-                    throw std::invalid_argument("Expected a struct reference of type " + MyFunc->TypeName + " when calling method " + this->_FuncName + ".");
+                    throw std::invalid_argument("Expected a struct reference of type \"" + MyFunc->TypeName + "\" when calling method \"" + this->_FuncName + "\"");
                     return MyValue();
                 }
                 StructPtr.Value = TypeCasting(StructPtr, BaseType, Gen);
@@ -726,18 +727,18 @@ namespace ast {
             else if (this->_StructPtr) {
                 MyValue StructPtr = this->_StructPtr->codegen(Gen);
                 if (!StructPtr.Value->getType()->isPointerTy()) {
-                    throw std::invalid_argument("Expected a struct pointer when calling method " + this->_FuncName + ".");
+                    throw std::invalid_argument("Expected a struct pointer when calling method \"" + this->_FuncName + "\"");
                     return MyValue();
                 }
                 if (StructPtr.Value->getType() != BaseType) {
-                    throw std::invalid_argument("Expected a struct pointer of type " + MyFunc->TypeName + " when calling method " + this->_FuncName + ".");
+                    throw std::invalid_argument("Expected a struct pointer of type \"" + MyFunc->TypeName + "\" when calling method \"" + this->_FuncName + "\"");
                     return MyValue();
                 }
                 StructPtr.Value = TypeCasting(StructPtr, BaseType, Gen);
                 ArgList.push_back(StructPtr.Value);
             }
             else {
-                throw std::invalid_argument("Expected a struct reference or pointer when calling method " + this->_FuncName + ".");
+                throw std::invalid_argument("Expected a struct reference or pointer when calling method \"" + this->_FuncName + "\"");
                 return MyValue();
             }
         }
@@ -752,12 +753,12 @@ namespace ast {
             auto ArgType = Args->at(Index)->_VarType;
 
             if (Arg.IsInnerConstPointer && ArgType->isPointerType() && !((PointerType*)ArgType)->isInnerConst()) {
-                throw std::invalid_argument("Cannot pass an inner-const pointer to a non-inner-const pointer argument.");
+                throw std::invalid_argument("Cannot pass an inner-const pointer to a non-inner-const pointer while calling function \"" + this->_FuncName + "\"");
                 return MyValue();
             }
             Arg.Value = TypeCasting(Arg, ArgIter->getType(), Gen);
             if (Arg.Value == NULL) {
-                throw std::invalid_argument(std::to_string(Index) + "-th arg type doesn't match when calling function " + this->_FuncName + ".");
+                throw std::invalid_argument(std::to_string(Index) + "-th arg type doesn't match while calling function \"" + this->_FuncName + "\"");
                 return MyValue();
             }
             ArgList.push_back(Arg.Value);
@@ -781,7 +782,7 @@ namespace ast {
         return MyValue(GlobalBuilder.CreateCall(Func, ArgList), "", RetType->_isConst, isInnerConst);
     }
     MyValue FunctionCall::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Function call only returns right-values.");
+        throw std::logic_error("Function call returns a right value");
         return MyValue();
     }
 
@@ -793,7 +794,7 @@ namespace ast {
     MyValue StructReference::codegenPtr(CodeGenerator& Gen) {
         MyValue StructPtr = this->_Struct->codegenPtr(Gen);
         if (!StructPtr.Value->getType()->isPointerTy() || !StructPtr.Value->getType()->getNonOpaquePointerElementType()->isStructTy()) {
-            throw std::logic_error("Reference operator \".\" must be apply to structs.");
+            throw std::logic_error("Reference operator \".\" must be applied to structs");
             return MyValue();
         }
 
@@ -801,7 +802,7 @@ namespace ast {
         if (StructType) {
             int MemIndex = StructType->GetElementIndex(this->_MemName);
             if (MemIndex == -1) {
-                throw std::logic_error("The struct doesn't have a member whose name is \"" + this->_MemName + "\".");
+                throw std::logic_error("The struct doesn't have a member whose name is \"" + this->_MemName + "\"");
                 return MyValue();
             }
             std::vector<llvm::Value*> Indices;
@@ -828,7 +829,7 @@ namespace ast {
     MyValue StructDereference::codegenPtr(CodeGenerator& Gen) {
         MyValue StructPtr = this->_StructPtr->codegen(Gen);
         if (!StructPtr.Value->getType()->isPointerTy() || !StructPtr.Value->getType()->getNonOpaquePointerElementType()->isStructTy()) {
-            throw std::logic_error("Dereference operator \"->\" must be apply to structs.");
+            throw std::logic_error("Dereference operator \"->\" must be applied to structs");
             return MyValue();
         }
 
@@ -836,7 +837,7 @@ namespace ast {
         if (StructType) {
             int MemIndex = StructType->GetElementIndex(this->_MemName);
             if (MemIndex == -1) {
-                throw std::logic_error("The struct doesn't have a member whose name is \"" + this->_MemName + "\".");
+                throw std::logic_error("The struct doesn't have member variable \"" + this->_MemName + "\"");
                 return MyValue();
             }
 
@@ -863,11 +864,11 @@ namespace ast {
             Operand.Value->getType()->isIntegerTy() ||
             Operand.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Unary plus must be applied to integers or floating-point numbers.");
+            throw std::logic_error("Unary plus must be applied to integers or floating-point numbers");
         return MyValue(Operand);
     }
     MyValue UnaryPlus::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Unary plus only returns right-values.");
+        throw std::logic_error("Unary plus returns a right value");
         return MyValue();
     }
 
@@ -878,14 +879,14 @@ namespace ast {
             Operand.Value->getType()->isIntegerTy() ||
             Operand.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Unary minus must be applied to integers or floating-point numbers.");
+            throw std::logic_error("Unary minus must be applied to integers or floating-point numbers");
         if (Operand.Value->getType()->isIntegerTy())
             return MyValue(GlobalBuilder.CreateNeg(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer);
         else
             return MyValue(GlobalBuilder.CreateFNeg(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer);
     }
     MyValue UnaryMinus::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Unary minus only returns right-values.");
+        throw std::logic_error("Unary minus returns a right value");
         return MyValue();
     }
 
@@ -894,19 +895,19 @@ namespace ast {
         MyValue MyVal = this->_Operand->codegen(Gen);
         if (MyVal.IsInnerConstPointer
             && !(this->_VarType->isPointerType() && ((PointerType*)(this->_VarType))->isInnerConst())) {
-            throw std::logic_error("Cannot type cast an inner-const pointer to a non-inner-const pointer.");
+            throw std::logic_error("Cannot type cast an inner-const pointer to a non-inner-const pointer");
             return MyValue();
         }
 
         MyValue Ret = MyValue(TypeCasting(MyVal, this->_VarType->GetLLVMType(Gen), Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
         if (Ret.Value == NULL) {
-            throw std::logic_error("Unable to do type casting.");
+            throw std::logic_error("Unable to do type casting");
             return MyValue();
         }
         return Ret;
     }
     MyValue TypeCast::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Type casting only returns right-values.");
+        throw std::logic_error("Type casting returns a right value");
         return MyValue();
     }
 
@@ -918,7 +919,7 @@ namespace ast {
     MyValue PrefixInc::codegenPtr(CodeGenerator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
-            throw std::logic_error("Const variable cannot do prefix increment.");
+            throw std::logic_error("Const variable cannot do prefix increment");
             return MyValue();
         }
         MyValue OpValue = MyValue(GlobalBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
@@ -926,7 +927,7 @@ namespace ast {
             OpValue.Value->getType()->isIntegerTy() ||
             OpValue.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Prefix increment must be applied to integers or floating-point numbers.");
+            throw std::logic_error("Prefix increment must be applied to integers or floating-point numbers");
         MyValue OpValuePlus = MyValue(CreateAdd(OpValue, MyValue(GlobalBuilder.getInt1(1)), Gen));
         GlobalBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
         return MyValue(Operand);
@@ -936,7 +937,7 @@ namespace ast {
     MyValue PostfixInc::codegen(CodeGenerator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
-            throw std::logic_error("Const variable cannot do postfix increment.");
+            throw std::logic_error("Const variable cannot do postfix increment");
             return MyValue();
         }
         MyValue OpValue = MyValue(GlobalBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
@@ -950,7 +951,7 @@ namespace ast {
         return MyValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
     MyValue PostfixInc::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Postfix increment only returns right-values.");
+        throw std::logic_error("Postfix increment returns a right value");
         return MyValue();
     }
 
@@ -962,7 +963,7 @@ namespace ast {
     MyValue PrefixDec::codegenPtr(CodeGenerator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
-            throw std::logic_error("Const variable cannot do prefix decrement.");
+            throw std::logic_error("Const variable cannot do prefix decrement");
             return MyValue();
         }
         MyValue OpValue = MyValue(GlobalBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
@@ -970,7 +971,7 @@ namespace ast {
             OpValue.Value->getType()->isIntegerTy() ||
             OpValue.Value->getType()->isFloatingPointTy())
             )
-            throw std::logic_error("Prefix decrement must be applied to integers or floating-point numbers.");
+            throw std::logic_error("Prefix decrement must be applied to integers or floating-point numbers");
         MyValue OpValueMinus = MyValue(CreateSub(OpValue, MyValue(GlobalBuilder.getInt1(1)), Gen));
         GlobalBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
         return MyValue(Operand);
@@ -980,7 +981,7 @@ namespace ast {
     MyValue PostfixDec::codegen(CodeGenerator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
-            throw std::logic_error("Const variable cannot do postfix decrement.");
+            throw std::logic_error("Const variable cannot do postfix decrement");
             return MyValue();
         }
         MyValue OpValue = MyValue(GlobalBuilder.CreateLoad(Operand.Value->getType()->getNonOpaquePointerElementType(), Operand.Value));
@@ -994,7 +995,7 @@ namespace ast {
         return MyValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
     MyValue PostfixDec::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Postfix decrement only returns right-values.");
+        throw std::logic_error("Postfix decrement returns a right value");
         return MyValue();
     }
 
@@ -1006,7 +1007,7 @@ namespace ast {
     MyValue Indirection::codegenPtr(CodeGenerator& Gen) {
         MyValue Ptr = this->_Operand->codegen(Gen);
         if (!Ptr.Value->getType()->isPointerTy()) {
-            throw std::logic_error("Indirection operator \"dptr()\" only applies on pointers or arrays.");
+            throw std::logic_error("Indirection operator \"dptr()\" only applies on pointers or arrays");
             return MyValue();
         }
         return MyValue(Ptr);
@@ -1017,17 +1018,17 @@ namespace ast {
         return MyValue(this->_Operand->codegenPtr(Gen));
     }
     MyValue AddressOf::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Address operator \"addr()\" only returns right-values.");
+        throw std::logic_error("Address operator \"addr()\" returns a right value");
         return MyValue();
     }
 
     //Logic NOT
     MyValue LogicNot::codegen(CodeGenerator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
-        return MyValue(GlobalBuilder.CreateICmpEQ(Cast2I1(MyVal.Value), GlobalBuilder.getInt1(false)), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
+        return MyValue(GlobalBuilder.CreateICmpEQ(CastToBool(MyVal.Value), GlobalBuilder.getInt1(false)), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
     MyValue LogicNot::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Logic NOT operator \"!\" only returns right-values.");
+        throw std::logic_error("Logic NOT operator \"!\" returns a right value");
         return MyValue();
     }
 
@@ -1035,13 +1036,13 @@ namespace ast {
     MyValue BitwiseNot::codegen(CodeGenerator& Gen) {
         MyValue Operand = this->_Operand->codegen(Gen);
         if (!Operand.Value->getType()->isIntegerTy()) {
-            throw std::logic_error("Bitwise NOT operator \"~\" must be applied to integers.");
+            throw std::logic_error("Bitwise NOT operator \"~\" must be applied to integers");
             return MyValue();
         }
         return MyValue(GlobalBuilder.CreateNot(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
     MyValue BitwiseNot::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Bitwise NOT operator \"~\" only returns right-values.");
+        throw std::logic_error("Bitwise NOT operator \"~\" returns a right value");
         return MyValue();
     }
 
@@ -1052,7 +1053,7 @@ namespace ast {
         return MyValue(CreateDiv(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue Division::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Division operator \"/\" only returns right-values.");
+        throw std::logic_error("Division operator \"/\" returns a right value");
         return MyValue();
     }
 
@@ -1063,7 +1064,7 @@ namespace ast {
         return MyValue(CreateMul(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue Multiplication::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Multiplication operator \"*\" only returns right-values.");
+        throw std::logic_error("Multiplication operator \"*\" returns a right value");
         return MyValue();
     }
 
@@ -1074,7 +1075,7 @@ namespace ast {
         return MyValue(CreateMod(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue Modulo::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Modulo operator \"%\" only returns right-values.");
+        throw std::logic_error("Modulo operator \"%\" returns a right value");
         return MyValue();
     }
 
@@ -1085,7 +1086,7 @@ namespace ast {
         return MyValue(CreateAdd(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue Addition::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Addition operator \"+\" only returns right-values.");
+        throw std::logic_error("Addition operator \"+\" returns a right value");
         return MyValue();
     }
 
@@ -1096,7 +1097,7 @@ namespace ast {
         return MyValue(CreateSub(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue Subtraction::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Subtraction operator \"-\" only returns right-values.");
+        throw std::logic_error("Subtraction operator \"-\" returns a right value");
         return MyValue();
     }
 
@@ -1107,7 +1108,7 @@ namespace ast {
         return MyValue(CreateShl(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue LeftShift::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Left shifting operator \"<<\" only returns right-values.");
+        throw std::logic_error("Left shifting operator \"<<\" returns a right value");
         return MyValue();
     }
 
@@ -1118,7 +1119,7 @@ namespace ast {
         return MyValue(CreateShr(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue RightShift::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Right shifting operator \">>\" only returns right-values.");
+        throw std::logic_error("Right shifting operator \">>\" returns a right value");
         return MyValue();
     }
 
@@ -1151,10 +1152,10 @@ namespace ast {
                 GlobalBuilder.CreatePtrToInt(RightOp.Value, GlobalBuilder.getInt64Ty())
             ));
         }
-        throw std::domain_error("Comparison \">\" using unsupported type combination.");
+        throw std::logic_error("Comparison \">\" between uncomparable types");
     }
     MyValue LogicGT::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Comparison operator \">\" only returns right-values.");
+        throw std::logic_error("Comparison operator \">\" returns a right value");
         return MyValue();
     }
 
@@ -1186,10 +1187,10 @@ namespace ast {
                 GlobalBuilder.CreatePtrToInt(RightOp.Value, GlobalBuilder.getInt64Ty())
             ));
         }
-        throw std::domain_error("Comparison \">=\" using unsupported type combination.");
+        throw std::logic_error("Comparison \">=\" between uncomparable types");
     }
     MyValue LogicGE::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Comparison operator \">=\" only returns right-values.");
+        throw std::logic_error("Comparison operator \">=\" returns a right value");
         return MyValue();
     }
 
@@ -1221,10 +1222,10 @@ namespace ast {
                 GlobalBuilder.CreatePtrToInt(RightOp.Value, GlobalBuilder.getInt64Ty())
             ));
         }
-        throw std::domain_error("Comparison \"<\" using unsupported type combination.");
+        throw std::logic_error("Comparison \"<\" between uncomparable types");
     }
     MyValue LogicLT::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Comparison operator \"<\" only returns right-values.");
+        throw std::logic_error("Comparison operator \"<\" returns a right value");
         return MyValue();
     }
 
@@ -1256,10 +1257,10 @@ namespace ast {
                 GlobalBuilder.CreatePtrToInt(RightOp.Value, GlobalBuilder.getInt64Ty())
             ));
         }
-        throw std::domain_error("Comparison \"<=\" using unsupported type combination.");
+        throw std::logic_error("Comparison \"<=\" between uncomparable types");
     }
     MyValue LogicLE::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Comparison operator \"<=\" only returns right-values.");
+        throw std::logic_error("Comparison operator \"<=\" returns a right value");
         return MyValue();
     }
 
@@ -1270,7 +1271,7 @@ namespace ast {
         return MyValue(CreateCmpEQ(LeftOp.Value, RightOp.Value));
     }
     MyValue LogicEQ::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Comparison operator \"==\" only returns right-values.");
+        throw std::logic_error("Comparison operator \"==\" returns a right value");
         return MyValue();
     }
 
@@ -1302,10 +1303,10 @@ namespace ast {
                 GlobalBuilder.CreatePtrToInt(RightOp.Value, GlobalBuilder.getInt64Ty())
             ));
         }
-        throw std::domain_error("Comparison \"!=\" using unsupported type combination.");
+        throw std::logic_error("Comparison \"!=\" between uncomparable types");
     }
     MyValue LogicNEQ::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Comparison operator \"!=\" only returns right-values.");
+        throw std::logic_error("Comparison operator \"!=\" returns a right value");
         return MyValue();
     }
 
@@ -1316,7 +1317,7 @@ namespace ast {
         return MyValue(CreateBitwiseAND(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue BitwiseAND::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Bitwise AND operator \"&\" only returns right-values.");
+        throw std::logic_error("Bitwise AND operator \"&\" returns a right value");
         return MyValue();
     }
 
@@ -1327,7 +1328,7 @@ namespace ast {
         return MyValue(CreateBitwiseXOR(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue BitwiseXOR::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Bitwise XOR operator \"^\" only returns right-values.");
+        throw std::logic_error("Bitwise XOR operator \"^\" returns a right value");
         return MyValue();
     }
 
@@ -1338,7 +1339,7 @@ namespace ast {
         return MyValue(CreateBitwiseOR(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
     MyValue BitwiseOR::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Bitwise OR operator \"|\" only returns right-values.");
+        throw std::logic_error("Bitwise OR operator \"|\" returns a right value");
         return MyValue();
     }
 
@@ -1346,20 +1347,20 @@ namespace ast {
     MyValue LogicAND::codegen(CodeGenerator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
-        LeftOp = MyValue(Cast2I1(LeftOp.Value));
+        LeftOp = MyValue(CastToBool(LeftOp.Value));
         if (LeftOp.Value == NULL) {
-            throw std::domain_error("Logic AND operator \"&&\" must be applied to 2 expressions that can be cast to boolean.");
+            throw std::logic_error("Logic AND operator \"&&\" must be applied to 2 boolean expressions");
             return MyValue();
         }
-        RightOp = MyValue(Cast2I1(RightOp.Value));
+        RightOp = MyValue(CastToBool(RightOp.Value));
         if (RightOp.Value == NULL) {
-            throw std::domain_error("Logic AND operator \"&&\" must be applied to 2 expressions that can be cast to boolean.");
+            throw std::logic_error("Logic AND operator \"&&\" must be applied to 2 boolean expressions");
             return MyValue();
         }
         return MyValue(GlobalBuilder.CreateLogicalAnd(LeftOp.Value, RightOp.Value));
     }
     MyValue LogicAND::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Logic AND operator \"&&\" only returns right-values.");
+        throw std::logic_error("Logic AND operator \"&&\" returns a right value");
         return MyValue();
     }
 
@@ -1367,28 +1368,28 @@ namespace ast {
     MyValue LogicOR::codegen(CodeGenerator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
-        LeftOp = MyValue(Cast2I1(LeftOp.Value));
+        LeftOp = MyValue(CastToBool(LeftOp.Value));
         if (LeftOp.Value == NULL) {
-            throw std::domain_error("Logic OR operator \"||\" must be applied to 2 expressions that can be cast to boolean.");
+            throw std::logic_error("Logic OR operator \"||\" must be applied to 2 boolean expressions");
             return MyValue();
         }
-        RightOp = MyValue(Cast2I1(RightOp.Value));
+        RightOp = MyValue(CastToBool(RightOp.Value));
         if (RightOp.Value == NULL) {
-            throw std::domain_error("Logic OR operator \"||\" must be applied to 2 expressions that can be cast to boolean.");
+            throw std::logic_error("Logic OR operator \"||\" must be applied to 2 boolean expressions");
             return MyValue();
         }
         return MyValue(GlobalBuilder.CreateLogicalOr(LeftOp.Value, RightOp.Value));
     }
     MyValue LogicOR::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Logic OR operator \"||\" only returns right-values.");
+        throw std::logic_error("Logic OR operator \"||\" returns a right value");
         return MyValue();
     }
 
     //TernaryCondition
     MyValue TernaryCondition::codegen(CodeGenerator& Gen) {
-        MyValue Condition = MyValue(Cast2I1(this->_Condition->codegen(Gen).Value));
+        MyValue Condition = MyValue(CastToBool(this->_Condition->codegen(Gen).Value));
         if (Condition.Value == NULL) {
-            throw std::logic_error("The first operand of thernary operand \" ? : \" must be able to be cast to boolean.");
+            throw std::logic_error("The first operand of thernary operand \" ? : \" must a boolean expression");
             return MyValue();
         }
         MyValue True = this->_Then->codegen(Gen);
@@ -1398,20 +1399,20 @@ namespace ast {
                 True.IsInnerConstPointer || False.IsInnerConstPointer, True.IsPointingToInnerConst);
         }
         else {
-            throw std::domain_error("Thernary operand \" ? : \" using unsupported type combination.");
+            throw std::logic_error("Thernary operand \" ? : \" among uncomparable types");
             return MyValue();
         }
     }
     MyValue TernaryCondition::codegenPtr(CodeGenerator& Gen) {
-        MyValue Condition = MyValue(Cast2I1(this->_Condition->codegen(Gen).Value));
+        MyValue Condition = MyValue(CastToBool(this->_Condition->codegen(Gen).Value));
         if (Condition.Value == NULL) {
-            throw std::logic_error("The first operand of thernary operand \" ? : \" must be able to be cast to boolean.");
+            throw std::logic_error("The first operand of thernary operand \" ? : \" must a boolean expression");
             return MyValue();
         }
         MyValue True = this->_Then->codegenPtr(Gen);
         MyValue False = this->_Else->codegenPtr(Gen);
         if (True.Value->getType() != False.Value->getType()) {
-            throw std::domain_error("When using thernary expressions \" ? : \" as left-values, the latter two operands must be of the same type.");
+            throw std::logic_error("When using thernary expressions \" ? : \" as left-values, the latter two operands must be of the same type");
             return MyValue();
         }
         return MyValue(GlobalBuilder.CreateSelect(Condition.Value, True.Value, False.Value));
@@ -1635,7 +1636,7 @@ namespace ast {
         if (VarPtr) {
             return MyValue(CreateLoad(VarPtr->Value, Gen), VarPtr->Name, VarPtr->IsConst, VarPtr->IsInnerConstPointer);
         }
-        throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable.");
+        throw std::logic_error("Identifier \"" + this->_Name + "\" is not a declared variable");
         return MyValue();
     }
     MyValue Variable::codegenPtr(CodeGenerator& Gen) {
@@ -1643,7 +1644,7 @@ namespace ast {
         if (VarPtr) return MyValue(VarPtr->Value, VarPtr->Name, true,
             VarPtr->IsConst, VarPtr->IsInnerConstPointer);
 
-        throw std::logic_error("Identifier \"" + this->_Name + "\" is not a variable");
+        throw std::logic_error("Identifier \"" + this->_Name + "\" is not a declared variable");
         return MyValue();
     }
 
@@ -1665,12 +1666,12 @@ namespace ast {
         case BuiltInType::TypeID::_Double:
             return MyValue(llvm::ConstantFP::get(GlobalBuilder.getDoubleTy(), this->_Real), "", true, false, false);
         default:
-            throw std::logic_error("Unknown constant type.");
+            throw std::logic_error("Unknown constant type");
             return MyValue();
         }
     }
     MyValue Constant::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Constant is a right-value.");
+        throw std::logic_error("Constant is a right-value");
         return MyValue();
     }
 
@@ -1679,7 +1680,7 @@ namespace ast {
         return MyValue(GlobalBuilder.CreateGlobalStringPtr(this->_Content.c_str()), "", true, false, false);
     }
     MyValue GlobalString::codegenPtr(CodeGenerator& Gen) {
-        throw std::logic_error("Global string (constant) is a right-value.");
+        throw std::logic_error("Global string is a right value");
         return MyValue();
     }
 
@@ -1688,7 +1689,7 @@ namespace ast {
         if (ThisPtr) {
             return MyValue(CreateLoad(ThisPtr->Value, Gen), ThisPtr->Name, true, false);
         }
-        throw std::logic_error("Using \"this\" but not in a member function.");
+        throw std::logic_error("Using \"this\" but not in a member function");
         return MyValue();
     }
 
@@ -1697,7 +1698,7 @@ namespace ast {
         if (ThisPtr) {
             return MyValue(ThisPtr->Value, ThisPtr->Name, true, true);
         }
-        throw std::logic_error("Using \"this\" but not in a member function.");
+        throw std::logic_error("Using \"this\" but not in a member function");
         return MyValue();
     }
 }

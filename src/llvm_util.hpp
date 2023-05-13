@@ -6,7 +6,8 @@
 #include <vector>
 #include "codegen.hpp"
 
-llvm::Value* Cast2I1(llvm::Value* Value) {
+//Cast a integer, or a floating-point number, or a pointer to bool
+llvm::Value* CastToBool(llvm::Value* Value) {
 	if (Value->getType() == GlobalBuilder.getInt1Ty())
 		return Value;
 	else if (Value->getType()->isIntegerTy())
@@ -16,7 +17,7 @@ llvm::Value* Cast2I1(llvm::Value* Value) {
 	else if (Value->getType()->isPointerTy())
 		return GlobalBuilder.CreateICmpNE(GlobalBuilder.CreatePtrToInt(Value, GlobalBuilder.getInt64Ty()), GlobalBuilder.getInt64(0));
 	else {
-		throw std::logic_error("Cannot cast to bool type.");
+		throw std::logic_error("Cannot cast to bool type");
 		return NULL;
 	}
 }
@@ -33,7 +34,7 @@ llvm::Value* TypeCasting(ast::MyValue MyVal, llvm::Type* Type, CodeGenerator& Ge
 		return Value;
 	}
 	else if (Type == GlobalBuilder.getInt1Ty()) {	//Int1 (bool) is special.
-		return Cast2I1(Value);
+		return CastToBool(Value);
 	}
 	else if (Value->getType()->isIntegerTy() && Type->isIntegerTy()) {
 		return GlobalBuilder.CreateIntCast(Value, Type, !Value->getType()->isIntegerTy(1));
@@ -153,7 +154,7 @@ llvm::Value* CreateCmpEQ(llvm::Value* LeftOp, llvm::Value* RightOp) {
 			GlobalBuilder.CreatePtrToInt(RightOp, GlobalBuilder.getInt64Ty())
 		);
 	}
-	throw std::domain_error("Comparison \"==\" using unsupported type combination.");
+	throw std::logic_error("Comparison \"==\" between uncomparable types");
 	return NULL;
 }
 
@@ -180,7 +181,7 @@ llvm::Value* CreateAdd(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	if (LeftOp.Value->getType()->isPointerTy() && RightOp.Value->getType()->isIntegerTy()) {
 		return GlobalBuilder.CreateGEP(LeftOp.Value->getType()->getNonOpaquePointerElementType(), LeftOp.Value, RightOp.Value);
 	}
-	throw std::logic_error("Addition using unsupported type combination.");
+	throw std::logic_error("Addition between uncompatible types");
 	return NULL;
 }
 
@@ -196,7 +197,7 @@ llvm::Value* CreateSub(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	}
 	if (LeftOp.Value->getType()->isPointerTy() && LeftOp.Value->getType() == RightOp.Value->getType())
 		return GlobalBuilder.CreatePtrDiff(LeftOp.Value->getType()->getNonOpaquePointerElementType(), LeftOp.Value, RightOp.Value);
-	throw std::logic_error("Subtraction using unsupported type combination.");
+	throw std::logic_error("Subtraction between uncompatible types");
 	return NULL;
 }
 
@@ -208,7 +209,7 @@ llvm::Value* CreateMul(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 			return GlobalBuilder.CreateFMul(LeftOp.Value, RightOp.Value);
 	}
 	else {
-		throw std::logic_error("Multiplication operator \"*\" must only be applied to integers or floating-point numbers.");
+		throw std::logic_error("Multiplication operator \"*\" can only be applied to integers or floating-point numbers");
 		return NULL;
 	}
 }
@@ -221,14 +222,14 @@ llvm::Value* CreateDiv(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 			return GlobalBuilder.CreateFDiv(LeftOp.Value, RightOp.Value);
 	}
 	else {
-		throw std::logic_error("Division operator \"/\" must only be applied to integers or floating-point numbers.");
+		throw std::logic_error("Division operator \"/\" can only be applied to integers or floating-point numbers");
 		return NULL;
 	}
 }
 
 llvm::Value* CreateMod(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
-		throw std::domain_error("Modulo operator \"%\" must be applied to 2 integers.");
+		throw std::logic_error("Modulo operator \"%\" can be applied between 2 integers");
 		return NULL;
 	}
 	TypeUpgrading(LeftOp.Value, RightOp.Value);
@@ -237,7 +238,7 @@ llvm::Value* CreateMod(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 
 llvm::Value* CreateShl(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
-		throw std::domain_error("Left shifting operator \"<<\" must be applied to 2 integers.");
+		throw std::logic_error("Left shifting operator \"<<\" can be applied between 2 integers");
 		return NULL;
 	}
 	TypeUpgrading(LeftOp.Value, RightOp.Value);
@@ -246,7 +247,7 @@ llvm::Value* CreateShl(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 
 llvm::Value* CreateShr(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
-		throw std::domain_error("Left shifting operator \"<<\" must be applied to 2 integers.");
+		throw std::logic_error("Left shifting operator \"<<\" can be applied between 2 integers");
 		return NULL;
 	}
 	TypeUpgrading(LeftOp.Value, RightOp.Value);
@@ -255,7 +256,7 @@ llvm::Value* CreateShr(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 
 llvm::Value* CreateBitwiseAND(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
-		throw std::domain_error("Bitwise AND operator \"&\" must be applied to 2 integers.");
+		throw std::logic_error("Bitwise AND operator \"&\" can be applied between 2 integers");
 		return NULL;
 	}
 	TypeUpgrading(LeftOp.Value, RightOp.Value);
@@ -264,7 +265,7 @@ llvm::Value* CreateBitwiseAND(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGen
 
 llvm::Value* CreateBitwiseOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
-		throw std::domain_error("Bitwise OR operator \"|\" must be applied to 2 integers.");
+		throw std::logic_error("Bitwise OR operator \"|\" can be applied between 2 integers");
 		return NULL;
 	}
 	TypeUpgrading(LeftOp.Value, RightOp.Value);
@@ -273,7 +274,7 @@ llvm::Value* CreateBitwiseOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGene
 
 llvm::Value* CreateBitwiseXOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
-		throw std::domain_error("Bitwise XOR operator \"^\" must be applied to 2 integers.");
+		throw std::logic_error("Bitwise XOR operator \"^\" can be applied between 2 integers");
 		return NULL;
 	}
 	TypeUpgrading(LeftOp.Value, RightOp.Value);
@@ -284,24 +285,24 @@ llvm::Value* CreateBitwiseXOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGen
 llvm::Value* CreateAssignment(ast::MyValue pLeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
 	if (pLeftOp.Value->getType()->getNonOpaquePointerElementType()->isArrayTy())
 	{
-		throw std::domain_error("Array type (const ptr) variable cannot be assigned.");
+		throw std::logic_error("Array type (const ptr) variable cannot be assigned");
 		return NULL;
 	}
 	if (pLeftOp.IsInnerConstPointer) {
-		throw std::domain_error("Const variable cannot be assigned.");
+		throw std::logic_error("Const variable cannot be assigned");
 		return NULL;
 	}
 
 	//not allow ptr<const> assign to ptr<>
 	if (pLeftOp.Value->getType()->getNonOpaquePointerElementType()->isPointerTy() && !pLeftOp.IsPointingToInnerConst &&
 		RightOp.Value->getType()->isPointerTy() && RightOp.IsInnerConstPointer) {
-		throw std::domain_error("Inner-const pointer cannot assign to a non-inner-const pointer.");
+		throw std::logic_error("Inner-const pointer cannot assign to a non-inner-const pointer");
 		return NULL;
 	}
 
 	RightOp.Value = TypeCasting(RightOp, pLeftOp.Value->getType()->getNonOpaquePointerElementType(), Generator);
 	if (RightOp.Value == NULL) {
-		throw std::domain_error("Assignment with values that cannot be cast to the target type.");
+		throw std::logic_error("Assignment with values that cannot be cast to the target type");
 		return NULL;
 	}
 	GlobalBuilder.CreateStore(RightOp.Value, pLeftOp.Value);
