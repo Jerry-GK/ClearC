@@ -15,7 +15,7 @@ for demoName in "test_prime" "test_matrix" "test_hanoi" "test_lcs" "test_arithme
     echo "Runing Test for: " ${demoName}
     echo ${bar}
     demoFileName=$demoName".cc"
-    ./build/clearc ./${demoFilePath}/${demoFileName} ./test/bin/obj
+    ./build/clearc -O3 ./${demoFilePath}/${demoFileName} -o ./test/bin/obj
     gcc ./test/bin/obj -o ./test/bin/${demoName}.out
 
     ./test/testbin/macos/arm64/$demoName ./test/bin/${demoName}.out

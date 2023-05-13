@@ -27,9 +27,6 @@ func main() -> int {
     c.ReadExpr(expr);
     int result = c.Calc();
 
-    ptr<const char> pc;
-    c.ReadExpr(pc);
-
     printf("%d\n", result);
     return 0;
 }

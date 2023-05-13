@@ -122,7 +122,9 @@ public:
 
     llvm::BasicBlock* GetEmptyBB(void);
 
-    void GenerateIRCode(ast::Program& Root, const std::string& OptimizeLevel = "");
+    void GenerateIRCode(ast::Program& Root);
+
+    void OptimizeIRCode(const std::string& OptimizeLevel = "");
 
     bool OutputIR(std::string FileName);
 

@@ -5,7 +5,8 @@ cd build
 
 make -j
 
-./clearc ../${demoFilePath}/${demoFileName} ../test/bin/obj
+./clearc -O3 ../${demoFilePath}/${demoFileName} -o ../test/bin/obj
+
 gcc ../test/bin/obj -o ../test/bin/${demoFileName}.out
 
 cd ..

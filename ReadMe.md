@@ -38,7 +38,6 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
    pa++; //illegal
    ```
    
-   
 3. **Array**:
 
    array in ClearC has very limited functionality.
@@ -434,6 +433,12 @@ There are some example source code files (name ended by `.cc`) in folders of `./
 You can compile and run them for test.
 
 The root also has some test script for linux / macos.
+
+`./rebuild.sh` is to regenerate lexer.cpp and parser.cpp, and compile, get executable file ./build/clearc
+
+`./redemo.sh` is to recompile project and  use clearc to compile, link and run ./test/demo/demo.cc
+
+`./retest_basic.sh` is recompile project, test all cases in ./test/basic.
 
 ## References
 

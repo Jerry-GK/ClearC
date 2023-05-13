@@ -3,68 +3,50 @@
 source_filename = "main"
 
 %struct.Point = type { i32 }
-%struct.Student = type { i32 }
 
 @0 = private unnamed_addr constant [16 x i8] c"Point's x = %d\0A\00", align 1
 @1 = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 
-declare i32 @printf(i8*, ...)
+; Function Attrs: nofree nounwind
+declare noundef i32 @printf(i8* nocapture noundef readonly, ...) local_unnamed_addr #0
 
-declare i32 @scanf(i8*, ...)
-
-define void @SetX(%struct.Point* %0, i32 %1) {
+; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn writeonly
+define void @SetX(%struct.Point* nocapture writeonly %0, i32 %1) local_unnamed_addr #1 {
 entry:
-  %x = alloca i32, align 4
-  %"0this" = alloca %struct.Point*, align 8
-  store %struct.Point* %0, %struct.Point** %"0this", align 8
-  store i32 %1, i32* %x, align 4
-  %2 = load %struct.Point*, %struct.Point** %"0this", align 8
-  %3 = getelementptr %struct.Point, %struct.Point* %2, i32 0, i32 0
-  %4 = load i32, i32* %x, align 4
-  store i32 %4, i32* %3, align 4
-  %5 = load i32, i32* %3, align 4
+  %2 = getelementptr %struct.Point, %struct.Point* %0, i64 0, i32 0
+  store i32 %1, i32* %2, align 4
   ret void
 }
 
-define i32 @GetX(%struct.Point* %0) {
+; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly willreturn
+define i32 @GetX(%struct.Point* nocapture readonly %0) local_unnamed_addr #2 {
 entry:
-  %"0this" = alloca %struct.Point*, align 8
-  store %struct.Point* %0, %struct.Point** %"0this", align 8
-  %1 = load %struct.Point*, %struct.Point** %"0this", align 8
-  %2 = getelementptr %struct.Point, %struct.Point* %1, i32 0, i32 0
-  %3 = load i32, i32* %2, align 4
-  ret i32 %3
+  %1 = getelementptr %struct.Point, %struct.Point* %0, i64 0, i32 0
+  %2 = load i32, i32* %1, align 4
+  ret i32 %2
 }
 
-define void @PrintX(%struct.Point* %0) {
+; Function Attrs: nofree nounwind
+define void @PrintX(%struct.Point* nocapture readonly %0) local_unnamed_addr #0 {
 entry:
-  %"0this" = alloca %struct.Point*, align 8
-  store %struct.Point* %0, %struct.Point** %"0this", align 8
-  %1 = load %struct.Point*, %struct.Point** %"0this", align 8
-  %2 = getelementptr %struct.Point, %struct.Point* %1, i32 0, i32 0
-  %3 = load i32, i32* %2, align 4
-  %4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i32 0, i32 0), i32 %3)
+  %1 = getelementptr %struct.Point, %struct.Point* %0, i64 0, i32 0
+  %2 = load i32, i32* %1, align 4
+  %3 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i32 %2)
   ret void
 }
 
-define i32 @main() {
+; Function Attrs: nofree nounwind
+define i32 @main() local_unnamed_addr #0 {
 entry:
-  %x = alloca i32, align 4
-  %sp = alloca %struct.Student*, align 8
-  %s = alloca %struct.Student, align 8
-  %pp = alloca %struct.Point*, align 8
-  %p = alloca %struct.Point, align 8
-  store %struct.Point* %p, %struct.Point** %pp, align 8
-  store %struct.Student* %s, %struct.Student** %sp, align 8
-  call void @SetX(%struct.Point* %p, i32 37)
-  %0 = call i32 @GetX(%struct.Point* %p)
-  store i32 %0, i32* %x, align 4
-  %1 = load i32, i32* %x, align 4
-  %2 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @1, i32 0, i32 0), i32 %1)
-  %3 = load %struct.Point*, %struct.Point** %pp, align 8
-  call void @PrintX(%struct.Point* %3)
+  %0 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([4 x i8], [4 x i8]* @1, i64 0, i64 0), i32 37)
+  %1 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i32 37) #3
   ret i32 0
 }
+
+attributes #0 = { nofree nounwind }
+attributes #1 = { mustprogress nofree norecurse nosync nounwind willreturn writeonly }
+attributes #2 = { mustprogress nofree norecurse nosync nounwind readonly willreturn }
+attributes #3 = { nounwind }
 
 ===================  Errors  ====================
 No IR error.

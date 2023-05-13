@@ -171,7 +171,7 @@ llvm::BasicBlock* CodeGenerator::GetEmptyBB(void) {
     return this->EmptyBB;
 }
 
-void CodeGenerator::GenerateIRCode(ast::Program& Root, const std::string& OptimizeLevel) {
+void CodeGenerator::GenerateIRCode(ast::Program& Root) {
     //Initialize symbol table
     this->StructTyTable = new StructTypeTable;
     this->PushSymbolTable();
@@ -193,6 +193,44 @@ void CodeGenerator::GenerateIRCode(ast::Program& Root, const std::string& Optimi
     //Delete symbol table
     this->PopSymbolTable();
     delete this->StructTyTable; this->StructTyTable = NULL;
+}
+
+void CodeGenerator::OptimizeIRCode(const std::string& OptimizeLevel) {
+    //Run optimization
+        //Create the analysis managers.
+    llvm::LoopAnalysisManager LAM;
+    llvm::FunctionAnalysisManager FAM;
+    llvm::CGSCCAnalysisManager CGAM;
+    llvm::ModuleAnalysisManager MAM;
+    //Create the new pass manager builder.
+    llvm::PassBuilder PB;
+    //Register all the basic analyses with the managers.
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+    //Create the pass manager.
+    const llvm::OptimizationLevel* OptLevel;
+    if (OptimizeLevel == "O0")
+        OptLevel = &llvm::OptimizationLevel::O0;
+    else if (OptimizeLevel == "O1")
+        OptLevel = &llvm::OptimizationLevel::O1;
+    else if (OptimizeLevel == "O2")
+        OptLevel = &llvm::OptimizationLevel::O2;
+    else if (OptimizeLevel == "O3")
+        OptLevel = &llvm::OptimizationLevel::O3;
+    else if (OptimizeLevel == "Os")
+        OptLevel = &llvm::OptimizationLevel::Os;
+    else if (OptimizeLevel == "Oz")
+        OptLevel = &llvm::OptimizationLevel::Oz;
+    else {
+        throw std::logic_error("Invalid optimization level: " + OptimizeLevel);
+        return;
+    }
+    llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(*OptLevel);
+    //Optimize the IR
+    MPM.run(*this->Module, MAM);
 }
 
 bool CodeGenerator::OutputIR(std::string FileName) {
