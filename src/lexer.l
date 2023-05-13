@@ -6,10 +6,10 @@
 
 extern "C" int yywrap() {return 1;}
 
-char EscapeOfChar(char ch){
-	if ('0'<=ch && ch<='9')
-		return (char)(ch-'0');
-	switch(ch){
+char EscapeOfChar(char c){
+	if ('0'<=c && c<='9')
+		return (char)(c-'0');
+	switch(c){
 	case 'a': return '\a';
 	case 'b': return '\b';
 	case 'f': return '\f';
@@ -18,10 +18,10 @@ char EscapeOfChar(char ch){
 	case 't': return '\t';
 	case 'v': return '\v';
 	case '\\': return '\\';
-	case '\'': return '\'';
 	case '\"': return '\"';
+	case '\'': return '\'';
 	default:
-		return ch;
+		return c;
 	}
 }
 %}
@@ -35,12 +35,6 @@ char EscapeOfChar(char ch){
 ","														{return COMMA;}
 "."														{return DOT;}
 "..."													{return ELLIPSES;}
-"("														{return LPAREN;}
-")"														{return RPAREN;}
-"{"														{return LBRACE;}
-"}"														{return RBRACE;}
-"["														{return LBRACKET;}
-"]"														{return RBRACKET;}
 "<<="													{return SHLEQ;}
 "<<"													{return SHL;}
 ">>="													{return SHREQ;}
@@ -77,6 +71,12 @@ char EscapeOfChar(char ch){
 "%"														{return MOD;}
 "?"														{return QUES;}
 ":"														{return COLON;}
+"("														{return LPAREN;}
+")"														{return RPAREN;}
+"{"														{return LBRACE;}
+"}"														{return RBRACE;}
+"["														{return LBRACKET;}
+"]"														{return RBRACKET;}
 "func"													{return FUNC;}
 "struct"												{return STRUCT;}
 "typedef"												{return TYPEDEF;}
@@ -100,6 +100,7 @@ char EscapeOfChar(char ch){
 "null"													{return NULL_; }
 "break"													{return BREAK; }
 "sizeof"												{return SIZEOF; }
+"void"													{return VOID; }
 "bool"													{return BOOL; }
 "short"													{return SHORT; }
 "int"													{return INT; }
@@ -107,7 +108,6 @@ char EscapeOfChar(char ch){
 "char"													{return CHAR; }
 "float"													{return FLOAT; }
 "double"												{return DOUBLE; }
-"void"													{return VOID; }
 [ \t\n]													{ ; }
 "/*"[^*]*[*]+([^*/][^*]*[*]+)*"/"						{ ; }
 "//".*													{ ; }
@@ -137,15 +137,11 @@ char EscapeOfChar(char ch){
 															return IDENTIFIER; 
 														} 
 [0-9]+\.[0-9]+											{ 
-															double dtmp;
-															sscanf(yytext, "%lf", &dtmp);
-															yylval.dVal = dtmp;
+															sscanf(yytext, "%lf", &yylval.dVal);
 															return REAL; 
 														}
 [0-9]+													{
-															int itmp;
-															sscanf(yytext, "%d", &itmp);
-															yylval.iVal = itmp; 
+															sscanf(yytext, "%d", &yylval.iVal);
 															return INTEGER; 
 														}
 %%

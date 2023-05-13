@@ -422,8 +422,11 @@ source code -> tokens -> ast -> IR -> object file -> executable file
 cmake -S . -B ./build 
 cd build
 make
-./clearc <source code path> <target file name>
-./<target file name>
+
+./clearc -O3  <source code> -o <target object file> # O3 is optimization level
+
+gcc <target object file> -o <target executable file>
+./<target executable file>
 ```
 
 ## Test

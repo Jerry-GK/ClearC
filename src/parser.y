@@ -180,14 +180,14 @@ _VarType:	BuiltInType												{  $$ = $1;   }
 			| IDENTIFIER											{  $$ = new ast::DefinedType(*$1);   }
 			;
 			
-BuiltInType: BOOL													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Bool);   }
+BuiltInType: VOID													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Void);   }
+			| BOOL													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Bool);   }
 			| SHORT													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Short);   }
 			| INT													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Int);   }
 			| LONG													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Long);   }
 			| CHAR													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Char);   }
 			| FLOAT													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Float);   }
 			| DOUBLE												{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Double);   }
-			| VOID													{  $$ = new ast::BuiltInType(ast::BuiltInType::TypeID::_Void);   }
 			;
 
 FieldDecls:	FieldDecls FieldDecl            						{  $$ = $1; if ($2 != NULL) $$->push_back($2);   }

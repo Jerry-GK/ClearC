@@ -1,3 +1,5 @@
+//This implementation is referenced!
+
 #include "ast.hpp"
 #include <iostream>
 #include <sstream>
@@ -65,10 +67,10 @@ string getJson(string name, string value) {
     return getJson(name, vector<string>{value});
 }
 
-string Program::astJson() {
+string Program::nodeJson() {
     vector<string> declJson;	//children node json
     for (auto x : *_Decls)
-        declJson.push_back(x->astJson());
+        declJson.push_back(x->nodeJson());
     // children.push_back(getJson("Decls", declJson));
     return getJson("Program", declJson);
     //return getJson("program",vector<string>{Decl->getJson()});
@@ -76,7 +78,7 @@ string Program::astJson() {
 
 void Program::genHTML(std::string FileName) {
     std::string OutputString = Html;
-    std::string Json = astJson();
+    std::string Json = nodeJson();
     std::string Target = "${ASTJson}";
     auto Pos = OutputString.find(Target);
     OutputString.replace(Pos, Target.length(), Json.c_str());
@@ -84,104 +86,104 @@ void Program::genHTML(std::string FileName) {
     HTMLFile << OutputString;
 }
 
-string FuncDecl::astJson() {
+string FuncDecl::nodeJson() {
     vector<string> children;
-    children.push_back(getJson("Return Type", _RetType->astJson()));
+    children.push_back(getJson("Return Type", _RetType->nodeJson()));
     children.push_back(getJson("Function Name", getJson(_FuncName)));
     vector<string> argListJson;
     for (auto& x : *_ArgList)
-        argListJson.push_back(x->astJson());
+        argListJson.push_back(x->nodeJson());
     if (_ArgList->_VarArg == true)
         argListJson.push_back(getJson("...", ""));
     children.push_back(getJson("ArgList", argListJson));
     if (_FuncBody != NULL)
-        children.push_back(_FuncBody->astJson());
+        children.push_back(_FuncBody->nodeJson());
     return getJson("FuncDeclaration", children);
 }
 
-string ArgList::astJson() {
+string ArgList::nodeJson() {
     if (_VarArg == true)
         return getJson("..", getJson("True"));
     else if (_VarArg == false)
         return getJson("..", getJson("False"));
 }
 
-string FuncBody::astJson() {
+string FuncBody::nodeJson() {
     vector<string> funcBodyJson;	//children node json
     for (auto& x : *_Content)
-        funcBodyJson.push_back(x->astJson());
+        funcBodyJson.push_back(x->nodeJson());
     // children.push_back(getJson("Decls", declJson));
     return getJson("FuncBody", funcBodyJson);
 }
 
-string VarDecl::astJson() {
+string VarDecl::nodeJson() {
     vector<string> children;
-    children.push_back(_VarType->astJson());
+    children.push_back(_VarType->nodeJson());
     vector<string> varListJson;
     for (auto& x : *_VarList)
-        varListJson.push_back(x->astJson());
+        varListJson.push_back(x->nodeJson());
     children.push_back(getJson("VarList", varListJson));
     return getJson("VarDeclaration", children);
 }
 
-string VarInit::astJson() {
+string VarInit::nodeJson() {
     vector<string> children;
     children.push_back(getJson(_Name));
     if (_InitialExpr != NULL)
     {
         //children.push_back(getJson("="));
-        children.push_back(_InitialExpr->astJson());
+        children.push_back(_InitialExpr->nodeJson());
     }
     // if(_InitialConstant != NULL)
     // {
     // children.push_back(getJson("="));
-    // children.push_back(getJson("Initial Constant",_InitialConstant->astJson()));
+    // children.push_back(getJson("Initial Constant",_InitialConstant->nodeJson()));
     // }
-    //children.push_back(_InitialExpr->astJson());
-    //children.push_back(_InitialConstant->astJson());
+    //children.push_back(_InitialExpr->nodeJson());
+    //children.push_back(_InitialConstant->nodeJson());
     return getJson("Varinit", children);
 }
 
-string TypeDecl::astJson() {
+string TypeDecl::nodeJson() {
     vector<string> children;
-    children.push_back(_VarType->astJson());
+    children.push_back(_VarType->nodeJson());
     children.push_back(getJson(_Alias));
     return getJson("TypeDeclaration", children);
     // return "";
 }
 
-string DefinedType::astJson() {
+string DefinedType::nodeJson() {
     vector<string> children;
     children.push_back(getJson(_Name));
     return getJson("Definedtype", children);
     // return "";
 }
 
-string PointerType::astJson() {
+string PointerType::nodeJson() {
     vector<string> children;
-    children.push_back(_BaseType->astJson());
+    children.push_back(_BaseType->nodeJson());
     return getJson("PointerType", children);
     // return "";
 }
 
-string ArrayType::astJson() {
+string ArrayType::nodeJson() {
     vector<string> children;
-    children.push_back(_BaseType->astJson());
+    children.push_back(_BaseType->nodeJson());
     children.push_back(getJson(to_string(_Length)));
     return getJson("ArrayType", children);
     // return "";
 }
 
-string StructType::astJson() {
+string StructType::nodeJson() {
     vector<string> children;
     for (auto& x : *_StructBody)
-        children.push_back(x->astJson());
+        children.push_back(x->nodeJson());
     return getJson("StructType", children);
 }
 
-string FieldDecl::astJson() {
+string FieldDecl::nodeJson() {
     vector<string> children;
-    children.push_back(_VarType->astJson());
+    children.push_back(_VarType->nodeJson());
     vector<string> memListJson;
     for (auto x : *_MemList)
         memListJson.push_back(getJson(x));
@@ -190,461 +192,461 @@ string FieldDecl::astJson() {
     // return "";
 }
 
-string Arg::astJson()
+string Arg::nodeJson()
 {
     vector<string> children;
-    children.push_back(_VarType->astJson());
+    children.push_back(_VarType->nodeJson());
     if (_Name != "") children.push_back(getJson(_Name));
     return getJson("Arg", children);
     // return "";
 }
 
-string Block::astJson() {
+string Block::nodeJson() {
     vector<string> blockJson;	//children node json
     for (auto& x : *_Content)
-        blockJson.push_back(x->astJson());
+        blockJson.push_back(x->nodeJson());
     // children.push_back(getJson("Decls", declJson));
     return getJson("Block", blockJson);
 }
 
-string IfStmt::astJson() {
+string IfStmt::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Condition->astJson());
-    children.push_back(_Then->astJson());
+    children.push_back(_Condition->nodeJson());
+    children.push_back(_Then->nodeJson());
     if (_Else != NULL)
-        children.push_back(_Else->astJson());
+        children.push_back(_Else->nodeJson());
     return getJson("IfStmt", children);
 }
 
-string ForStmt::astJson() {
+string ForStmt::nodeJson() {
     vector<string> children;	//children node json
     if (_Initial != NULL)
-        children.push_back(_Initial->astJson());
+        children.push_back(_Initial->nodeJson());
     if (_Condition != NULL)
-        children.push_back(_Condition->astJson());
+        children.push_back(_Condition->nodeJson());
     if (_Tail != NULL)
-        children.push_back(_Tail->astJson());
+        children.push_back(_Tail->nodeJson());
     if (_LoopBody != NULL)
-        children.push_back(_LoopBody->astJson());
+        children.push_back(_LoopBody->nodeJson());
     return getJson("ForStmt", children);
 }
 
-string SwitchStmt::astJson() {
+string SwitchStmt::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Matcher->astJson());
+    children.push_back(_Matcher->nodeJson());
     vector<string> caseListJson;
     for (auto x : *_CaseList)
-        caseListJson.push_back(x->astJson());
+        caseListJson.push_back(x->nodeJson());
     children.push_back(getJson("CaseList", caseListJson));
     return getJson("SwitchStmt", children);
 }
 
-string CaseStmt::astJson() {
+string CaseStmt::nodeJson() {
     vector<string> children;	//children node json
     if (_Condition != NULL)
-        children.push_back(_Condition->astJson());
+        children.push_back(_Condition->nodeJson());
     else
         children.push_back(getJson("Default"));
     vector<string> stmtListJson;
     for (auto x : *_Content)
-        stmtListJson.push_back(x->astJson());
+        stmtListJson.push_back(x->nodeJson());
     children.push_back(getJson("StatmentList", stmtListJson));
     return getJson("CaseStmt", children);
 }
 
-string BreakStmt::astJson() {
+string BreakStmt::nodeJson() {
     return getJson("BreakStmt");
 }
 
-string ContinueStmt::astJson() {
+string ContinueStmt::nodeJson() {
     return getJson("ContinueStmt");
 }
 
-string ReturnStmt::astJson() {
+string ReturnStmt::nodeJson() {
     vector<string> children;	//children node json
     if (_RetVal != NULL)
-        children.push_back(_RetVal->astJson());
+        children.push_back(_RetVal->nodeJson());
     return getJson("ReturnStmt", children);
 }
 
-string Subscript::astJson() {
+string Subscript::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Array->astJson());
-    children.push_back(_Index->astJson());
+    children.push_back(_Array->nodeJson());
+    children.push_back(_Index->nodeJson());
     return getJson("Subscript", children);
 }
 
-string SizeOf::astJson() {
+string SizeOf::nodeJson() {
     vector<string> children;	//children node json
     if (_Arg1 != NULL)
-        children.push_back(_Arg1->astJson());
+        children.push_back(_Arg1->nodeJson());
     if (_Arg2 != NULL)
-        children.push_back(_Arg2->astJson());
+        children.push_back(_Arg2->nodeJson());
     return getJson("Sizeof", children);
 }
 
-string FunctionCall::astJson() {
+string FunctionCall::nodeJson() {
     vector<string> children;	//children node json
     children.push_back(getJson("Function Name", getJson(_FuncName)));
     vector<string> argListJson;
     for (auto x : *_ArgList)
-        argListJson.push_back(x->astJson());
+        argListJson.push_back(x->nodeJson());
     children.push_back(getJson("ArgList", argListJson));
     return getJson("FunctionCall", children);
 }
 
-string StructReference::astJson() {
+string StructReference::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Struct->astJson());
+    children.push_back(_Struct->nodeJson());
     children.push_back(getJson(_MemName));
     return getJson("StructReference", children);
 }
 
-string StructDereference::astJson() {
+string StructDereference::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_StructPtr->astJson());
+    children.push_back(_StructPtr->nodeJson());
     children.push_back(getJson(_MemName));
     return getJson("StructDereference", children);
 }
 
-string UnaryPlus::astJson() {
+string UnaryPlus::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("+"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("UnaryPlus", children);
 }
 
-string UnaryMinus::astJson() {
+string UnaryMinus::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("-"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("UnaryMinus", children);
 }
 
-string TypeCast::astJson() {
+string TypeCast::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_VarType->astJson());
-    children.push_back(_Operand->astJson());
+    children.push_back(_VarType->nodeJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("TypeCast", children);
 }
 
-string PrefixInc::astJson() {
+string PrefixInc::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("++"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("PrefixInc", children);
 }
 
-string PostfixInc::astJson() {
+string PostfixInc::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     //children.push_back(getJson("++"));
     return getJson("PostfixInc", children);
 }
 
-string PrefixDec::astJson() {
+string PrefixDec::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("--"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("PrefixDec", children);
 }
 
-string PostfixDec::astJson() {
+string PostfixDec::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     //children.push_back(getJson("--"));
     return getJson("PostfixDec", children);
 }
 
-string Indirection::astJson() {
+string Indirection::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("*"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("Indirection", children);
 }
 
-string AddressOf::astJson() {
+string AddressOf::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("&"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("Addressof", children);
 }
 
-string LogicNot::astJson() {
+string LogicNot::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("!"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("LogicNot", children);
 }
 
-string BitwiseNot::astJson() {
+string BitwiseNot::nodeJson() {
     vector<string> children;	//children node json
     //children.push_back(getJson("~"));
-    children.push_back(_Operand->astJson());
+    children.push_back(_Operand->nodeJson());
     return getJson("BitwiseNot", children);
 }
 
-string Division::astJson() {
+string Division::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("/"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("Division", children);
 }
 
-string Multiplication::astJson() {
+string Multiplication::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("*"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("Multiplication", children);
 }
 
-string Modulo::astJson() {
+string Modulo::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("%"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("Modulo", children);
 }
 
-string Addition::astJson() {
+string Addition::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("+"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("Addition", children);
 }
 
-string Subtraction::astJson() {
+string Subtraction::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("-"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("Subtraction", children);
 }
 
-string LeftShift::astJson() {
+string LeftShift::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("<<"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LeftShift", children);
 }
 
-string RightShift::astJson() {
+string RightShift::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson(">>"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("RightShift", children);
 }
 
-string LogicGT::astJson() {
+string LogicGT::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson(">"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicGT", children);
 }
 
-string LogicGE::astJson() {
+string LogicGE::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson(">="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicGE", children);
 }
 
-string LogicLT::astJson() {
+string LogicLT::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("<"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicLT", children);
 }
 
-string LogicLE::astJson() {
+string LogicLE::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("<="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicLE", children);
 }
 
-string LogicEQ::astJson() {
+string LogicEQ::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("=="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicEQ", children);
 }
 
-string LogicNEQ::astJson() {
+string LogicNEQ::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("!="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicNEQ", children);
 }
 
-string BitwiseAND::astJson() {
+string BitwiseAND::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("&"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("BitwiseAND", children);
 }
 
-string BitwiseXOR::astJson() {
+string BitwiseXOR::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("^"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("BitwiseXOR", children);
 }
 
-string BitwiseOR::astJson() {
+string BitwiseOR::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("|"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("BitwiseOR", children);
 }
 
-string LogicAND::astJson() {
+string LogicAND::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("&&"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicAND", children);
 }
 
-string LogicOR::astJson() {
+string LogicOR::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("||"));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("LogicOR", children);
 }
 
-string TernaryCondition::astJson() {
+string TernaryCondition::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_Condition->astJson());
-    children.push_back(_Then->astJson());
-    children.push_back(_Else->astJson());
+    children.push_back(_Condition->nodeJson());
+    children.push_back(_Then->nodeJson());
+    children.push_back(_Else->nodeJson());
     return getJson("TernaryCondition", children);
 }
 
-string DirectAssign::astJson() {
+string DirectAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("DirectAssign", children);
 }
 
-string DivAssign::astJson() {
+string DivAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("/="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("DivAssign", children);
 }
 
-string MulAssign::astJson() {
+string MulAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("*="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("MulAssign", children);
 }
 
-string ModAssign::astJson() {
+string ModAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("%="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("ModAssign", children);
 }
 
-string AddAssign::astJson() {
+string AddAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("+="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("AddAssign", children);
 }
 
-string SubAssign::astJson() {
+string SubAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("-="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("SubAssign", children);
 }
 
-string SHLAssign::astJson() {
+string SHLAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("<<="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("SHLAssign", children);
 }
 
-string SHRAssign::astJson() {
+string SHRAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson(">>="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("SHRAssign", children);
 }
 
-string BitwiseANDAssign::astJson() {
+string BitwiseANDAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("&="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("BitwiseANDAssign", children);
 }
 
-string BitwiseXORAssign::astJson() {
+string BitwiseXORAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("^="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("BitwiseXORAssign", children);
 }
 
-string BitwiseORAssign::astJson() {
+string BitwiseORAssign::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson("|="));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("BitwiseORAssign", children);
 }
 
-string CommaExpr::astJson() {
+string CommaExpr::nodeJson() {
     vector<string> children;	//children node json
-    children.push_back(_LHS->astJson());
+    children.push_back(_LeftOp->nodeJson());
     //children.push_back(getJson(","));
-    children.push_back(_RHS->astJson());
+    children.push_back(_RightOp->nodeJson());
     return getJson("CommaExpr", children);
 }
 
-string Variable::astJson() {
+string Variable::nodeJson() {
     vector<string> children;	//children node json
     children.push_back(getJson(_Name));
     return getJson("Variable", children);
 }
 
-string GlobalString::astJson() {
+string GlobalString::nodeJson() {
     vector<string> children;	//children node json
     children.push_back(getJson("\"" + getString(_Content) + "\""));
     return getJson("Global String", children);
 }
 
-string Constant::astJson() {
+string Constant::nodeJson() {
     vector<string> children;	//children node json
     switch (_Type)
     {
@@ -668,7 +670,7 @@ string Constant::astJson() {
     }
 }
 
-string BuiltInType::astJson() {
+string BuiltInType::nodeJson() {
     switch (_Type)
     {
     case _Bool:
@@ -701,7 +703,7 @@ string BuiltInType::astJson() {
 }
 
 
-string This::astJson() {
+string This::nodeJson() {
     vector<string> children;	//children node json
     children.push_back(getJson("this"));
     return getJson("This", children);

@@ -25,7 +25,7 @@ int main(int argc, const char* argv[]) {
     }
     string InputFile = cp->GetInputFile();
     string OutputObjectFile = cp->GetOutputObjectFile();
-    string OptimizeLevel = cp->GetOptimizeLevel();
+    string OptimizationLevel = cp->GetOptimizationLevel();
     delete cp;
 
     //Read input file
@@ -58,13 +58,13 @@ int main(int argc, const char* argv[]) {
 
     //Optimize IR code
     try {
-        Gen.OptimizeIRCode(OptimizeLevel);
+        Gen.OptimizeIRCode(OptimizationLevel);
     }
     catch (const std::exception& e) {
         PrintError("[Optimization Error]: " + string(e.what()));
         return 1;
     }
-    PrintMsg("[Success]: IR code optimized successfully (level = " + OptimizeLevel + ")");
+    PrintMsg("[Success]: IR code optimized successfully (level = " + OptimizationLevel + ")");
 
     //Output and verify IR file
     bool IRValid = true;

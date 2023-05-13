@@ -649,8 +649,8 @@ static const yytype_int8 yyrhs[] =
      121,    -1,    53,    83,   100,     3,    -1,   101,    -1,    56,
      101,    -1,   102,    -1,    52,    15,   103,    16,    -1,    57,
       25,   100,    23,    -1,    58,    25,   100,     4,    82,    23,
-      -1,    83,    -1,    74,    -1,    75,    -1,    76,    -1,    77,
-      -1,    78,    -1,    79,    -1,    80,    -1,    81,    -1,   103,
+      -1,    83,    -1,    81,    -1,    74,    -1,    75,    -1,    76,
+      -1,    77,    -1,    78,    -1,    79,    -1,    80,    -1,   103,
      104,    -1,    -1,   100,   105,     3,    -1,     3,    -1,   106,
        4,    83,    -1,    83,    -1,    -1,   106,     4,    83,    -1,
       83,    -1,   108,     4,   109,    -1,   108,     4,     6,    -1,
@@ -806,7 +806,7 @@ static const yytype_uint8 yyr2[] =
 static const yytype_uint8 yydefact[] =
 {
        4,     0,     2,     1,     0,     0,     0,     0,     0,     0,
-      29,    30,    31,    32,    33,    34,    35,    36,    28,     3,
+      30,    31,    32,    33,    34,    35,    36,    29,    28,     3,
        5,     6,     7,    16,    22,    24,     0,    38,     0,    23,
        0,     0,    19,     0,     0,    15,     0,    50,     0,     0,
        0,     0,     0,    13,     0,     0,    49,    54,     0,     0,
@@ -2305,42 +2305,42 @@ yyreduce:
 
   case 29:
 #line 183 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Bool);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Void);   ;}
     break;
 
   case 30:
 #line 184 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Short);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Bool);   ;}
     break;
 
   case 31:
 #line 185 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Int);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Short);   ;}
     break;
 
   case 32:
 #line 186 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Long);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Int);   ;}
     break;
 
   case 33:
 #line 187 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Char);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Long);   ;}
     break;
 
   case 34:
 #line 188 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Float);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Char);   ;}
     break;
 
   case 35:
 #line 189 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Double);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Float);   ;}
     break;
 
   case 36:
 #line 190 "Parser.y"
-    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Void);   ;}
+    {  (yyval.builtInType) = new ast::BuiltInType(ast::BuiltInType::TypeID::_Double);   ;}
     break;
 
   case 37:

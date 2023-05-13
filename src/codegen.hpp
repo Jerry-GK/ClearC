@@ -1,25 +1,11 @@
 #pragma once
-#include <iostream>
-#include <fstream>
 #include <vector>
 #include <map>
 #include <stack>
 #include <string>
 #include <exception>
-#include <llvm/IR/Value.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/PassManager.h>
-#include <llvm/IR/CallingConv.h>
-#include <llvm/IR/IRPrintingPasses.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/GlobalVariable.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/IR/ValueSymbolTable.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Verifier.h>
+#include <iostream>
+#include <fstream>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/Interpreter.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -46,12 +32,12 @@
 #include "ast.hpp"
 
 //The global context.
-extern llvm::LLVMContext Context;
+extern llvm::LLVMContext GlobalContext;
 
 //A helper object that makes it easy to generate LLVM instructions.
 //It keeps track of the current place to insert instructions and
 //has methods to create new instructions.
-extern llvm::IRBuilder<> IRBuilder;
+extern llvm::IRBuilder<> GlobalBuilder;
 
 //return type for AddFunction()
 enum AddFunctionReseult {
@@ -90,11 +76,11 @@ public:
     bool AddType(std::string Name, ast::MyType* Type);
 
     //Find variable
-    ExprValue* FindVariable(std::string Name);
+    ast::MyValue* FindVariable(std::string Name);
 
     //Add a variable to the current symbol table
     //If an old value exists (i.e., conflict), return false
-    bool AddVariable(std::string Name, ExprValue* Variable);
+    bool AddVariable(std::string Name, ast::MyValue* Variable);
 
     //Find the ast::StructType* instance according to the llvm::StructType* instance
     ast::StructType* FindStructType(llvm::StructType* Ty1);
@@ -106,7 +92,7 @@ public:
     void SetCurFunction(ast::MyFunction* Func);
 
     //Get the current function
-    ast::MyFunction* GetCurrentFunction(void);
+    ast::MyFunction* GetCurFunction(void);
 
     //Called whenever entering a loop
     void EnterLoop(llvm::BasicBlock* ContinueBB, llvm::BasicBlock* BreakBB);
@@ -124,7 +110,7 @@ public:
 
     void GenerateIRCode(ast::Program& Root);
 
-    void OptimizeIRCode(const std::string& OptimizeLevel = "");
+    void OptimizeIRCode(const std::string& OptimizationLevel = "");
 
     bool OutputIR(std::string FileName);
 
@@ -134,16 +120,16 @@ public:
 private:
     class Symbol {
     public:
-        Symbol(void) : Content(NULL), Type(UNDEFINED) {}
-        Symbol(ast::MyFunction* Func) : Content(Func), Type(FUNCTION) {}
-        Symbol(ast::MyType* Ty) : Content(Ty), Type(TYPE) {}
-        Symbol(ExprValue* exprVal) : Content(exprVal), Type(VARIABLE) {}
-        ast::MyFunction* GetFunction(void) { return this->Type == FUNCTION ? (ast::MyFunction*)Content : NULL; }
-        ast::MyType* GetType(void) { return this->Type == TYPE ? (ast::MyType*)Content : NULL; }
-        ExprValue* GetVariable(void) { return this->Type == VARIABLE ? (ExprValue*)Content : NULL; }
+        Symbol(void) : Val(NULL), Type(UNDEFINED) {}
+        Symbol(ast::MyFunction* Func) : Val(Func), Type(FUNCTION) {}
+        Symbol(ast::MyType* Ty) : Val(Ty), Type(TYPE) {}
+        Symbol(ast::MyValue* MyVal) : Val(MyVal), Type(VARIABLE) {}
+        ast::MyFunction* GetFunction(void) { return this->Type == FUNCTION ? (ast::MyFunction*)Val : NULL; }
+        ast::MyType* GetType(void) { return this->Type == TYPE ? (ast::MyType*)Val : NULL; }
+        ast::MyValue* GetVariable(void) { return this->Type == VARIABLE ? (ast::MyValue*)Val : NULL; }
 
     private:
-        void* Content;
+        void* Val;
         enum {
             FUNCTION,
             TYPE,
@@ -151,13 +137,13 @@ private:
             UNDEFINED
         } Type;
     };
-    using StructTypeTable = std::map<llvm::StructType*, ast::StructType*>;
+    using StructTable = std::map<llvm::StructType*, ast::StructType*>;
     using SymbolTable = std::map<std::string, Symbol>;
 
 private:
-    llvm::DataLayout* DL;								//Data layout
+    llvm::DataLayout* DataLayout;								//Data layout
     ast::MyFunction* CurFunction;						//Current function
-    StructTypeTable* StructTyTable;						//Struct type table
+    StructTable* StructTyTable;						//Struct type table
     std::vector<SymbolTable*> SymbolTableStack;			//Symbol table
     std::vector<llvm::BasicBlock*> ContinueBlockStack;	//Store blocks for "continue" statement
     std::vector<llvm::BasicBlock*> BreakBlockStack;		//Store blocks for "break" statement

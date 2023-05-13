@@ -1,17 +1,17 @@
 #include "codegen.hpp"
 
 //The global llvm context.
-llvm::LLVMContext Context;
+llvm::LLVMContext GlobalContext;
 
 //A helper object that makes it easy to generate LLVM instructions.
 //It keeps track of the current place to insert instructions and
 //has methods to create new instructions.
-llvm::IRBuilder<> IRBuilder(Context);
+llvm::IRBuilder<> GlobalBuilder(GlobalContext);
 
 //Constructor
 CodeGenerator::CodeGenerator(void) :
-    Module(new llvm::Module("main", Context)),
-    DL(new llvm::DataLayout(Module)),
+    Module(new llvm::Module("main", GlobalContext)),
+    DataLayout(new llvm::DataLayout(Module)),
     CurFunction(NULL),
     StructTyTable(NULL),
     SymbolTableStack(),
@@ -23,7 +23,7 @@ CodeGenerator::CodeGenerator(void) :
 
 //Sizeof()
 llvm::TypeSize CodeGenerator::GetTypeSize(llvm::Type* Type) {
-    return this->DL->getTypeAllocSize(Type);
+    return this->DataLayout->getTypeAllocSize(Type);
 }
 
 //Create and push an empty symbol table
@@ -89,7 +89,7 @@ bool CodeGenerator::AddType(std::string Name, ast::MyType* Type) {
 }
 
 //Find variable
-ExprValue* CodeGenerator::FindVariable(std::string Name) {
+ast::MyValue* CodeGenerator::FindVariable(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
     for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
         auto mapIter = (*TableIter)->find(Name);
@@ -101,7 +101,7 @@ ExprValue* CodeGenerator::FindVariable(std::string Name) {
 
 //Add a variable to the current symbol table
 //If an old value exists (i.e., conflict), return false
-bool CodeGenerator::AddVariable(std::string Name, ExprValue* Variable) {
+bool CodeGenerator::AddVariable(std::string Name, ast::MyValue* Variable) {
     if (this->SymbolTableStack.size() == 0) return false;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
@@ -134,7 +134,7 @@ void CodeGenerator::SetCurFunction(ast::MyFunction* Func) {
 }
 
 //Get the current function
-ast::MyFunction* CodeGenerator::GetCurrentFunction(void) {
+ast::MyFunction* CodeGenerator::GetCurFunction(void) {
     return this->CurFunction;
 }
 
@@ -173,19 +173,19 @@ llvm::BasicBlock* CodeGenerator::GetEmptyBB(void) {
 
 void CodeGenerator::GenerateIRCode(ast::Program& Root) {
     //Initialize symbol table
-    this->StructTyTable = new StructTypeTable;
+    this->StructTyTable = new StructTable;
     this->PushSymbolTable();
 
     //Create a temp function and a temp block for global instruction code generation
-    this->EmptyFunc = llvm::Function::Create(llvm::FunctionType::get(IRBuilder.getVoidTy(), false), llvm::GlobalValue::InternalLinkage, "__EmptyFunc__", this->Module);
-    this->EmptyBB = llvm::BasicBlock::Create(Context, "__EmptyBB__", this->EmptyFunc);
+    this->EmptyFunc = llvm::Function::Create(llvm::FunctionType::get(GlobalBuilder.getVoidTy(), false), llvm::GlobalValue::InternalLinkage, "__EmptyFunc__", this->Module);
+    this->EmptyBB = llvm::BasicBlock::Create(GlobalContext, "__EmptyBB__", this->EmptyFunc);
 
     //Generate code
     Root.codegen(*this);
 
     //add a terminater for the temp block
-    IRBuilder.SetInsertPoint(this->EmptyBB);
-    //IRBuilder.CreateRetVoid();
+    GlobalBuilder.SetInsertPoint(this->EmptyBB);
+    //GlobalBuilder.CreateRetVoid();
     //Delete
     this->EmptyBB->eraseFromParent();
     this->EmptyFunc->eraseFromParent();
@@ -195,37 +195,37 @@ void CodeGenerator::GenerateIRCode(ast::Program& Root) {
     delete this->StructTyTable; this->StructTyTable = NULL;
 }
 
-void CodeGenerator::OptimizeIRCode(const std::string& OptimizeLevel) {
+void CodeGenerator::OptimizeIRCode(const std::string& OptimizationLevel) {
     //Run optimization
         //Create the analysis managers.
     llvm::LoopAnalysisManager LAM;
     llvm::FunctionAnalysisManager FAM;
-    llvm::CGSCCAnalysisManager CGAM;
+    llvm::CGSCCAnalysisManager CGSCCAM;
     llvm::ModuleAnalysisManager MAM;
     //Create the new pass manager builder.
     llvm::PassBuilder PB;
     //Register all the basic analyses with the managers.
     PB.registerModuleAnalyses(MAM);
-    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerCGSCCAnalyses(CGSCCAM);
     PB.registerFunctionAnalyses(FAM);
     PB.registerLoopAnalyses(LAM);
-    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+    PB.crossRegisterProxies(LAM, FAM, CGSCCAM, MAM);
     //Create the pass manager.
     const llvm::OptimizationLevel* OptLevel;
-    if (OptimizeLevel == "O0")
+    if (OptimizationLevel == "O0")
         OptLevel = &llvm::OptimizationLevel::O0;
-    else if (OptimizeLevel == "O1")
+    else if (OptimizationLevel == "O1")
         OptLevel = &llvm::OptimizationLevel::O1;
-    else if (OptimizeLevel == "O2")
+    else if (OptimizationLevel == "O2")
         OptLevel = &llvm::OptimizationLevel::O2;
-    else if (OptimizeLevel == "O3")
+    else if (OptimizationLevel == "O3")
         OptLevel = &llvm::OptimizationLevel::O3;
-    else if (OptimizeLevel == "Os")
+    else if (OptimizationLevel == "Os")
         OptLevel = &llvm::OptimizationLevel::Os;
-    else if (OptimizeLevel == "Oz")
+    else if (OptimizationLevel == "Oz")
         OptLevel = &llvm::OptimizationLevel::Oz;
     else {
-        throw std::logic_error("Invalid optimization level: " + OptimizeLevel);
+        throw std::logic_error("Invalid optimization level: " + OptimizationLevel);
         return;
     }
     llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(*OptLevel);
@@ -234,8 +234,8 @@ void CodeGenerator::OptimizeIRCode(const std::string& OptimizeLevel) {
 }
 
 bool CodeGenerator::OutputIR(std::string FileName) {
-    std::error_code EC;
-    llvm::raw_fd_ostream Out(FileName, EC);
+    std::error_code err;
+    llvm::raw_fd_ostream Out(FileName, err);
     Out << "===================  IR Code  ===================\n";
     this->Module->print(Out, NULL);
     Out << "\n===================  Errors  ====================\n";
@@ -250,37 +250,36 @@ bool CodeGenerator::OutputIR(std::string FileName) {
 }
 
 void CodeGenerator::GenObjectCode(std::string FileName) {
-    auto TargetTriple = llvm::sys::getDefaultTargetTriple();
+    auto target = llvm::sys::getDefaultTargetTriple();
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllAsmParsers();
     llvm::InitializeAllAsmPrinters();
     std::string Error;
-    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+    auto Target = llvm::TargetRegistry::lookupTarget(target, Error);
     if (!Target) {
         throw std::runtime_error(Error);
         return;
     }
-    auto CPU = "generic";
-    auto Features = "";
+
     llvm::TargetOptions opt;
     auto RM = llvm::Optional<llvm::Reloc::Model>();
-    auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+    auto TargetMachine = Target->createTargetMachine(target, "generic", "", opt, RM);
     Module->setDataLayout(TargetMachine->createDataLayout());
-    Module->setTargetTriple(TargetTriple);
-    std::error_code EC;
-    llvm::raw_fd_ostream Dest(FileName, EC, llvm::sys::fs::OF_None);
-    if (EC) {
-        throw std::runtime_error("Could not open file: " + EC.message());
+    Module->setTargetTriple(target);
+    std::error_code err;
+    llvm::raw_fd_ostream ostr(FileName, err, llvm::sys::fs::OF_None);
+    if (err) {
+        throw std::runtime_error("Could not open file: " + err.message());
         return;
     }
-    auto FileType = llvm::CGFT_ObjectFile;
-    llvm::legacy::PassManager PM;
-    if (TargetMachine->addPassesToEmitFile(PM, Dest, nullptr, FileType)) {
+
+    llvm::legacy::PassManager pm;
+    if (TargetMachine->addPassesToEmitFile(pm, ostr, nullptr, llvm::CGFT_ObjectFile)) {
         throw std::runtime_error("TargetMachine can't emit a file of this type");
         return;
     }
-    PM.run(*Module);
-    Dest.flush();
+    pm.run(*Module);
+    ostr.flush();
 }

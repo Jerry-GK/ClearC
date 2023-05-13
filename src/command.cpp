@@ -10,7 +10,7 @@ void CommandParser::ParseCommand(int argc, const char* argv[]) {
             this->OutputObjectFile = string(argv[++i]);
         }
         else if (string(argv[i]).find("-O") == 0) {
-            this->OptimizeLevel = string(argv[i]).substr(1, -1);
+            this->OptimizationLevel = string(argv[i]).substr(1, -1);
         }
         else {
             if (this->InputFile != "") {
@@ -36,6 +36,6 @@ string CommandParser::GetInputFile() {
 string CommandParser::GetOutputObjectFile() {
     return this->OutputObjectFile;
 }
-string CommandParser::GetOptimizeLevel() {
-    return this->OptimizeLevel;
+string CommandParser::GetOptimizationLevel() {
+    return this->OptimizationLevel;
 }

@@ -6,16 +6,16 @@ public:
     CommandParser() {
         InputFile = "";
         OutputObjectFile = "";
-        OptimizeLevel = "O0";
+        OptimizationLevel = "O0";
     };
     ~CommandParser() {}
     void ParseCommand(int argc, const char* argv[]);
     string GetInputFile();
     string GetOutputObjectFile();
-    string GetOptimizeLevel();
+    string GetOptimizationLevel();
 
 private:
     string InputFile;
     string OutputObjectFile;
-    string OptimizeLevel;
+    string OptimizationLevel;
 };

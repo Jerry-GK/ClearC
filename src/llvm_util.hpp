@@ -1,23 +1,23 @@
 #pragma once
-#include <iostream>
-#include <vector>
 #include <map>
 #include <stack>
 #include <string>
+#include <iostream>
+#include <vector>
 #include "codegen.hpp"
 
 //Cast a integer, or a floating-point number, or a pointer to i1 integer.
 //Return NULL if failed.
 //This function is very useful when generating a condition value for "if", "while", "for" statements.
 llvm::Value* Cast2I1(llvm::Value* Value) {
-	if (Value->getType() == IRBuilder.getInt1Ty())
+	if (Value->getType() == GlobalBuilder.getInt1Ty())
 		return Value;
 	else if (Value->getType()->isIntegerTy())
-		return IRBuilder.CreateICmpNE(Value, llvm::ConstantInt::get((llvm::IntegerType*)Value->getType(), 0, true));
+		return GlobalBuilder.CreateICmpNE(Value, llvm::ConstantInt::get((llvm::IntegerType*)Value->getType(), 0, true));
 	else if (Value->getType()->isFloatingPointTy())
-		return IRBuilder.CreateFCmpONE(Value, llvm::ConstantFP::get(Value->getType(), 0.0));
+		return GlobalBuilder.CreateFCmpONE(Value, llvm::ConstantFP::get(Value->getType(), 0.0));
 	else if (Value->getType()->isPointerTy())
-		return IRBuilder.CreateICmpNE(IRBuilder.CreatePtrToInt(Value, IRBuilder.getInt64Ty()), IRBuilder.getInt64(0));
+		return GlobalBuilder.CreateICmpNE(GlobalBuilder.CreatePtrToInt(Value, GlobalBuilder.getInt64Ty()), GlobalBuilder.getInt64(0));
 	else {
 		throw std::logic_error("Cannot cast to bool type.");
 		return NULL;
@@ -30,39 +30,39 @@ llvm::Value* Cast2I1(llvm::Value* Value) {
 //2. Float -> Int, Float
 //3. Pointer -> Int, Pointer (same basetype)
 //Other types are not supported, and will return NULL.
-llvm::Value* TypeCasting(ExprValue ExprVal, llvm::Type* Type, CodeGenerator& Gen) {
-	llvm::Value* Value = ExprVal.Value;
+llvm::Value* TypeCasting(ast::MyValue MyVal, llvm::Type* Type, CodeGenerator& Gen) {
+	llvm::Value* Value = MyVal.Value;
 	if (Value->getType() == Type) {
 		return Value;
 	}
-	else if (Type == IRBuilder.getInt1Ty()) {	//Int1 (bool) is special.
+	else if (Type == GlobalBuilder.getInt1Ty()) {	//Int1 (bool) is special.
 		return Cast2I1(Value);
 	}
 	else if (Value->getType()->isIntegerTy() && Type->isIntegerTy()) {
-		return IRBuilder.CreateIntCast(Value, Type, !Value->getType()->isIntegerTy(1));
+		return GlobalBuilder.CreateIntCast(Value, Type, !Value->getType()->isIntegerTy(1));
 	}
 	else if (Value->getType()->isIntegerTy() && Type->isFloatingPointTy()) {
 		return Value->getType()->isIntegerTy(1) ?
-			IRBuilder.CreateUIToFP(Value, Type) : IRBuilder.CreateSIToFP(Value, Type);
+			GlobalBuilder.CreateUIToFP(Value, Type) : GlobalBuilder.CreateSIToFP(Value, Type);
 	}
 	else if (Value->getType()->isIntegerTy() && Type->isPointerTy()) {
-		if (!ExprVal.IsZeroConstant) {
+		if (!MyVal.IsZeroConstant) {
 			throw std::logic_error("Type cast failed: pointer <- integer, integer can only be constant null (or 0)");
 			return NULL;
 		}
-		return IRBuilder.CreateIntToPtr(Value, Type);
+		return GlobalBuilder.CreateIntToPtr(Value, Type);
 	}
 	else if (Value->getType()->isFloatingPointTy() && Type->isIntegerTy()) {
-		return IRBuilder.CreateFPToSI(Value, Type);
+		return GlobalBuilder.CreateFPToSI(Value, Type);
 	}
 	else if (Value->getType()->isFloatingPointTy() && Type->isFloatingPointTy()) {
-		return IRBuilder.CreateFPCast(Value, Type);
+		return GlobalBuilder.CreateFPCast(Value, Type);
 	}
 	else if (Value->getType()->isPointerTy() && Type->isIntegerTy()) {
-		return IRBuilder.CreatePtrToInt(Value, Type);
+		return GlobalBuilder.CreatePtrToInt(Value, Type);
 	}
 	else if (Value->getType()->isPointerTy() && Type->isPointerTy()) {
-		return IRBuilder.CreatePointerCast(Value, Type);
+		return GlobalBuilder.CreatePointerCast(Value, Type);
 	}
 	else {
 		//error msg
@@ -89,17 +89,17 @@ llvm::Value* TypeUpgrading(llvm::Value* Value, llvm::Type* Type) {
 		size_t Bit1 = ((llvm::IntegerType*)Value->getType())->getBitWidth();
 		size_t Bit2 = ((llvm::IntegerType*)Type)->getBitWidth();
 		if (Bit1 < Bit2)
-			return IRBuilder.CreateIntCast(Value, Type, Bit1 != 1);
+			return GlobalBuilder.CreateIntCast(Value, Type, Bit1 != 1);
 		else return Value;
 	}
 	else if (Value->getType()->isFloatingPointTy() && Type->isFloatingPointTy()) {
 		if (Value->getType()->isFloatTy() && Type->isDoubleTy())
-			return IRBuilder.CreateFPCast(Value, Type);
+			return GlobalBuilder.CreateFPCast(Value, Type);
 		else return Value;
 	}
 	else if (Value->getType()->isIntegerTy() && Type->isFloatingPointTy()) {
 		return Value->getType()->isIntegerTy(1) ?
-			IRBuilder.CreateUIToFP(Value, Type) : IRBuilder.CreateSIToFP(Value, Type);
+			GlobalBuilder.CreateUIToFP(Value, Type) : GlobalBuilder.CreateSIToFP(Value, Type);
 	}
 	else if (Value->getType()->isFloatingPointTy() && Type->isIntegerTy()) {
 		return Value;
@@ -125,26 +125,26 @@ bool TypeUpgrading(llvm::Value*& Value1, llvm::Value*& Value2) {
 		size_t Bit1 = ((llvm::IntegerType*)Value1->getType())->getBitWidth();
 		size_t Bit2 = ((llvm::IntegerType*)Value2->getType())->getBitWidth();
 		if (Bit1 < Bit2)
-			Value1 = IRBuilder.CreateIntCast(Value1, Value2->getType(), Bit1 != 1);
+			Value1 = GlobalBuilder.CreateIntCast(Value1, Value2->getType(), Bit1 != 1);
 		else if (Bit1 > Bit2)
-			Value2 = IRBuilder.CreateIntCast(Value2, Value1->getType(), Bit2 != 1);
+			Value2 = GlobalBuilder.CreateIntCast(Value2, Value1->getType(), Bit2 != 1);
 		return true;
 	}
 	else if (Value1->getType()->isFloatingPointTy() && Value2->getType()->isFloatingPointTy()) {
 		if (Value1->getType()->isFloatTy() && Value2->getType()->isDoubleTy())
-			Value1 = IRBuilder.CreateFPCast(Value1, IRBuilder.getDoubleTy());
+			Value1 = GlobalBuilder.CreateFPCast(Value1, GlobalBuilder.getDoubleTy());
 		else if (Value1->getType()->isDoubleTy() && Value2->getType()->isFloatTy())
-			Value2 = IRBuilder.CreateFPCast(Value2, IRBuilder.getDoubleTy());
+			Value2 = GlobalBuilder.CreateFPCast(Value2, GlobalBuilder.getDoubleTy());
 		return true;
 	}
 	else if (Value1->getType()->isIntegerTy() && Value2->getType()->isFloatingPointTy()) {
 		Value1 = Value1->getType()->isIntegerTy(1) ?
-			IRBuilder.CreateUIToFP(Value1, Value2->getType()) : IRBuilder.CreateSIToFP(Value1, Value2->getType());
+			GlobalBuilder.CreateUIToFP(Value1, Value2->getType()) : GlobalBuilder.CreateSIToFP(Value1, Value2->getType());
 		return true;
 	}
 	else if (Value1->getType()->isFloatingPointTy() && Value2->getType()->isIntegerTy()) {
 		Value2 = Value2->getType()->isIntegerTy(1) ?
-			IRBuilder.CreateUIToFP(Value2, Value1->getType()) : IRBuilder.CreateSIToFP(Value2, Value1->getType());
+			GlobalBuilder.CreateUIToFP(Value2, Value1->getType()) : GlobalBuilder.CreateSIToFP(Value2, Value1->getType());
 		return true;
 	}
 	else return false;
@@ -162,31 +162,31 @@ llvm::AllocaInst* CreateEntryBlockAlloca(llvm::Function* Func, std::string VarNa
 
 //Create an equal-comparison instruction. This function will automatically do type casting
 //if the two input values are not of the same type.
-llvm::Value* CreateCmpEQ(llvm::Value* LHS, llvm::Value* RHS) {
+llvm::Value* CreateCmpEQ(llvm::Value* LeftOp, llvm::Value* RightOp) {
 	//Arithmatic compare
-	if (TypeUpgrading(LHS, RHS)) {
-		if (LHS->getType()->isIntegerTy())
-			return IRBuilder.CreateICmpEQ(LHS, RHS);
+	if (TypeUpgrading(LeftOp, RightOp)) {
+		if (LeftOp->getType()->isIntegerTy())
+			return GlobalBuilder.CreateICmpEQ(LeftOp, RightOp);
 		else
-			return IRBuilder.CreateFCmpOEQ(LHS, RHS);
+			return GlobalBuilder.CreateFCmpOEQ(LeftOp, RightOp);
 	}
 	//Pointer compare
-	if (LHS->getType()->isPointerTy() && LHS->getType() == RHS->getType()) {
-		return IRBuilder.CreateICmpEQ(
-			IRBuilder.CreatePtrToInt(LHS, IRBuilder.getInt64Ty()),
-			IRBuilder.CreatePtrToInt(RHS, IRBuilder.getInt64Ty())
+	if (LeftOp->getType()->isPointerTy() && LeftOp->getType() == RightOp->getType()) {
+		return GlobalBuilder.CreateICmpEQ(
+			GlobalBuilder.CreatePtrToInt(LeftOp, GlobalBuilder.getInt64Ty()),
+			GlobalBuilder.CreatePtrToInt(RightOp, GlobalBuilder.getInt64Ty())
 		);
 	}
-	else if (LHS->getType()->isPointerTy() && RHS->getType()->isIntegerTy()) {
-		return IRBuilder.CreateICmpEQ(
-			IRBuilder.CreatePtrToInt(LHS, IRBuilder.getInt64Ty()),
-			TypeUpgrading(RHS, IRBuilder.getInt64Ty())
+	else if (LeftOp->getType()->isPointerTy() && RightOp->getType()->isIntegerTy()) {
+		return GlobalBuilder.CreateICmpEQ(
+			GlobalBuilder.CreatePtrToInt(LeftOp, GlobalBuilder.getInt64Ty()),
+			TypeUpgrading(RightOp, GlobalBuilder.getInt64Ty())
 		);
 	}
-	else if (LHS->getType()->isIntegerTy() && RHS->getType()->isPointerTy()) {
-		return IRBuilder.CreateICmpEQ(
-			TypeUpgrading(LHS, IRBuilder.getInt64Ty()),
-			IRBuilder.CreatePtrToInt(RHS, IRBuilder.getInt64Ty())
+	else if (LeftOp->getType()->isIntegerTy() && RightOp->getType()->isPointerTy()) {
+		return GlobalBuilder.CreateICmpEQ(
+			TypeUpgrading(LeftOp, GlobalBuilder.getInt64Ty()),
+			GlobalBuilder.CreatePtrToInt(RightOp, GlobalBuilder.getInt64Ty())
 		);
 	}
 	throw std::domain_error("Comparison \"==\" using unsupported type combination.");
@@ -194,7 +194,7 @@ llvm::Value* CreateCmpEQ(llvm::Value* LHS, llvm::Value* RHS) {
 }
 
 //Create an unconditional branch if the current block doesn't have a terminator.
-//This function is safer than IRBuilder.CreateBr(llvm::BasicBlock* BB),
+//This function is safer than GlobalBuilder.CreateBr(llvm::BasicBlock* BB),
 //because if the current block already has a terminator, it does nothing.
 //For example, when generating if-statement, we create three blocks: ThenBB, ElseBB, MergeBB.
 //At the end of ThenBB and ElseBB, an unconditional branch to MergeBB needs to be created respectively,
@@ -204,8 +204,8 @@ llvm::Value* CreateCmpEQ(llvm::Value* LHS, llvm::Value* RHS) {
 //	else continue;
 llvm::BranchInst* TerminateBlockByBr(llvm::BasicBlock* BB) {
 	//If not terminated, jump to the target block
-	if (!IRBuilder.GetInsertBlock()->getTerminator())
-		return IRBuilder.CreateBr(BB);
+	if (!GlobalBuilder.GetInsertBlock()->getTerminator())
+		return GlobalBuilder.CreateBr(BB);
 	else
 		return NULL;
 }
@@ -219,20 +219,20 @@ llvm::BranchInst* TerminateBlockByBr(llvm::BasicBlock* BB) {
 //4. FP + Int -> FP				(TypeUpgrading)
 //2. FP + FP -> FP				(TypeUpgrading)
 //3. Pointer + Int -> Pointer
-llvm::Value* CreateAdd(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (TypeUpgrading(LHS.Value, RHS.Value)) {
-		if (LHS.Value->getType()->isIntegerTy())
-			return IRBuilder.CreateAdd(LHS.Value, RHS.Value);
+llvm::Value* CreateAdd(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
+		if (LeftOp.Value->getType()->isIntegerTy())
+			return GlobalBuilder.CreateAdd(LeftOp.Value, RightOp.Value);
 		else
-			return IRBuilder.CreateFAdd(LHS.Value, RHS.Value);
+			return GlobalBuilder.CreateFAdd(LeftOp.Value, RightOp.Value);
 	}
-	if (LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isPointerTy()) {
-		auto TMP = LHS;
-		LHS = RHS;
-		RHS = TMP;
+	if (LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isPointerTy()) {
+		auto TMP = LeftOp;
+		LeftOp = RightOp;
+		RightOp = TMP;
 	}
-	if (LHS.Value->getType()->isPointerTy() && RHS.Value->getType()->isIntegerTy()) {
-		return IRBuilder.CreateGEP(LHS.Value->getType()->getNonOpaquePointerElementType(), LHS.Value, RHS.Value);
+	if (LeftOp.Value->getType()->isPointerTy() && RightOp.Value->getType()->isIntegerTy()) {
+		return GlobalBuilder.CreateGEP(LeftOp.Value->getType()->getNonOpaquePointerElementType(), LeftOp.Value, RightOp.Value);
 	}
 	throw std::logic_error("Addition using unsupported type combination.");
 	return NULL;
@@ -247,18 +247,18 @@ llvm::Value* CreateAdd(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
 //4. FP - FP -> FP				(TypeUpgrading)
 //5. Pointer - Int -> Pointer
 //6. Pointer - Pointer -> Int64
-llvm::Value* CreateSub(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (TypeUpgrading(LHS.Value, RHS.Value)) {
-		if (LHS.Value->getType()->isIntegerTy())
-			return IRBuilder.CreateSub(LHS.Value, RHS.Value);
+llvm::Value* CreateSub(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
+		if (LeftOp.Value->getType()->isIntegerTy())
+			return GlobalBuilder.CreateSub(LeftOp.Value, RightOp.Value);
 		else
-			return IRBuilder.CreateFSub(LHS.Value, RHS.Value);
+			return GlobalBuilder.CreateFSub(LeftOp.Value, RightOp.Value);
 	}
-	if (LHS.Value->getType()->isPointerTy() && RHS.Value->getType()->isIntegerTy()) {
-		return IRBuilder.CreateGEP(LHS.Value->getType()->getNonOpaquePointerElementType(), LHS.Value, IRBuilder.CreateNeg(RHS.Value));
+	if (LeftOp.Value->getType()->isPointerTy() && RightOp.Value->getType()->isIntegerTy()) {
+		return GlobalBuilder.CreateGEP(LeftOp.Value->getType()->getNonOpaquePointerElementType(), LeftOp.Value, GlobalBuilder.CreateNeg(RightOp.Value));
 	}
-	if (LHS.Value->getType()->isPointerTy() && LHS.Value->getType() == RHS.Value->getType())
-		return IRBuilder.CreatePtrDiff(LHS.Value->getType()->getNonOpaquePointerElementType(), LHS.Value, RHS.Value);
+	if (LeftOp.Value->getType()->isPointerTy() && LeftOp.Value->getType() == RightOp.Value->getType())
+		return GlobalBuilder.CreatePtrDiff(LeftOp.Value->getType()->getNonOpaquePointerElementType(), LeftOp.Value, RightOp.Value);
 	throw std::logic_error("Subtraction using unsupported type combination.");
 	return NULL;
 }
@@ -270,12 +270,12 @@ llvm::Value* CreateSub(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
 //2. Int * FP -> FP				(TypeUpgrading)
 //3. FP * Int -> FP				(TypeUpgrading)
 //4. FP * FP -> FP				(TypeUpgrading)
-llvm::Value* CreateMul(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (TypeUpgrading(LHS.Value, RHS.Value)) {
-		if (LHS.Value->getType()->isIntegerTy())
-			return IRBuilder.CreateMul(LHS.Value, RHS.Value);
+llvm::Value* CreateMul(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
+		if (LeftOp.Value->getType()->isIntegerTy())
+			return GlobalBuilder.CreateMul(LeftOp.Value, RightOp.Value);
 		else
-			return IRBuilder.CreateFMul(LHS.Value, RHS.Value);
+			return GlobalBuilder.CreateFMul(LeftOp.Value, RightOp.Value);
 	}
 	else {
 		throw std::logic_error("Multiplication operator \"*\" must only be applied to integers or floating-point numbers.");
@@ -290,12 +290,12 @@ llvm::Value* CreateMul(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
 //2. Int / FP -> FP				(TypeUpgrading)
 //3. FP / Int -> FP				(TypeUpgrading)
 //4. FP / FP -> FP				(TypeUpgrading)
-llvm::Value* CreateDiv(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (TypeUpgrading(LHS.Value, RHS.Value)) {
-		if (LHS.Value->getType()->isIntegerTy())
-			return IRBuilder.CreateSDiv(LHS.Value, RHS.Value);
+llvm::Value* CreateDiv(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
+		if (LeftOp.Value->getType()->isIntegerTy())
+			return GlobalBuilder.CreateSDiv(LeftOp.Value, RightOp.Value);
 		else
-			return IRBuilder.CreateFDiv(LHS.Value, RHS.Value);
+			return GlobalBuilder.CreateFDiv(LeftOp.Value, RightOp.Value);
 	}
 	else {
 		throw std::logic_error("Division operator \"/\" must only be applied to integers or floating-point numbers.");
@@ -307,78 +307,78 @@ llvm::Value* CreateDiv(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
 //if the two input values are not of the same type.
 //Supported:
 //1. Int % Int -> Int			(TypeUpgrading)
-llvm::Value* CreateMod(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (!(LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isIntegerTy())) {
+llvm::Value* CreateMod(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::domain_error("Modulo operator \"%\" must be applied to 2 integers.");
 		return NULL;
 	}
-	TypeUpgrading(LHS.Value, RHS.Value);
-	return IRBuilder.CreateSRem(LHS.Value, RHS.Value);
+	TypeUpgrading(LeftOp.Value, RightOp.Value);
+	return GlobalBuilder.CreateSRem(LeftOp.Value, RightOp.Value);
 }
 
 //Create a shl instruction. This function will automatically do type casting
 //if the two input values are not of the same type.
 //Supported:
 //1. Int << Int -> Int			(TypeUpgrading)
-llvm::Value* CreateShl(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (!(LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isIntegerTy())) {
+llvm::Value* CreateShl(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::domain_error("Left shifting operator \"<<\" must be applied to 2 integers.");
 		return NULL;
 	}
-	TypeUpgrading(LHS.Value, RHS.Value);
-	return IRBuilder.CreateShl(LHS.Value, RHS.Value);
+	TypeUpgrading(LeftOp.Value, RightOp.Value);
+	return GlobalBuilder.CreateShl(LeftOp.Value, RightOp.Value);
 }
 
 //Create a shr instruction. This function will automatically do type casting
 //if the two input values are not of the same type.
 //Supported:
 //1. Int >> Int -> Int			(TypeUpgrading)
-llvm::Value* CreateShr(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (!(LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isIntegerTy())) {
+llvm::Value* CreateShr(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::domain_error("Left shifting operator \"<<\" must be applied to 2 integers.");
 		return NULL;
 	}
-	TypeUpgrading(LHS.Value, RHS.Value);
-	return IRBuilder.CreateAShr(LHS.Value, RHS.Value);
+	TypeUpgrading(LeftOp.Value, RightOp.Value);
+	return GlobalBuilder.CreateAShr(LeftOp.Value, RightOp.Value);
 }
 
 //Create a bitwise AND instruction. This function will automatically do type casting
 //if the two input values are not of the same type.
 //Supported:
 //1. Int & Int -> Int			(TypeUpgrading)
-llvm::Value* CreateBitwiseAND(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (!(LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isIntegerTy())) {
+llvm::Value* CreateBitwiseAND(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::domain_error("Bitwise AND operator \"&\" must be applied to 2 integers.");
 		return NULL;
 	}
-	TypeUpgrading(LHS.Value, RHS.Value);
-	return IRBuilder.CreateAnd(LHS.Value, RHS.Value);
+	TypeUpgrading(LeftOp.Value, RightOp.Value);
+	return GlobalBuilder.CreateAnd(LeftOp.Value, RightOp.Value);
 }
 
 //Create a bitwise OR instruction. This function will automatically do type casting
 //if the two input values are not of the same type.
 //Supported:
 //1. Int | Int -> Int			(TypeUpgrading)
-llvm::Value* CreateBitwiseOR(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (!(LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isIntegerTy())) {
+llvm::Value* CreateBitwiseOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::domain_error("Bitwise OR operator \"|\" must be applied to 2 integers.");
 		return NULL;
 	}
-	TypeUpgrading(LHS.Value, RHS.Value);
-	return IRBuilder.CreateOr(LHS.Value, RHS.Value);
+	TypeUpgrading(LeftOp.Value, RightOp.Value);
+	return GlobalBuilder.CreateOr(LeftOp.Value, RightOp.Value);
 }
 
 //Create a bitwise XOR instruction. This function will automatically do type casting
 //if the two input values are not of the same type.
 //Supported:
 //1. Int ^ Int -> Int			(TypeUpgrading)
-llvm::Value* CreateBitwiseXOR(ExprValue LHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (!(LHS.Value->getType()->isIntegerTy() && RHS.Value->getType()->isIntegerTy())) {
+llvm::Value* CreateBitwiseXOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::domain_error("Bitwise XOR operator \"^\" must be applied to 2 integers.");
 		return NULL;
 	}
-	TypeUpgrading(LHS.Value, RHS.Value);
-	return IRBuilder.CreateXor(LHS.Value, RHS.Value);
+	TypeUpgrading(LeftOp.Value, RightOp.Value);
+	return GlobalBuilder.CreateXor(LeftOp.Value, RightOp.Value);
 }
 
 //Create an assignment. This function will automatically do type casting
@@ -392,45 +392,45 @@ llvm::Value* CreateBitwiseXOR(ExprValue LHS, ExprValue RHS, CodeGenerator& Gener
 //6. Pointer = Int
 //7. Pointer = Pointer
 //8. Exactly the same type assignment
-//The "pLHS" argument should be a pointer pointing to the variable (the left-value in C)
-llvm::Value* CreateAssignment(ExprValue pLHS, ExprValue RHS, CodeGenerator& Generator) {
-	if (pLHS.Value->getType()->getNonOpaquePointerElementType()->isArrayTy())
+//The "pLeftOp" argument should be a pointer pointing to the variable (the left-value in C)
+llvm::Value* CreateAssignment(ast::MyValue pLeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+	if (pLeftOp.Value->getType()->getNonOpaquePointerElementType()->isArrayTy())
 	{
 		throw std::domain_error("Array type (const ptr) variable cannot be assigned.");
 		return NULL;
 	}
-	if (pLHS.IsInnerConstPointer) {
+	if (pLeftOp.IsInnerConstPointer) {
 		throw std::domain_error("Const variable cannot be assigned.");
 		return NULL;
 	}
 
 	//not allow ptr<const> assign to ptr<>
-	if (pLHS.Value->getType()->getNonOpaquePointerElementType()->isPointerTy() && !pLHS.IsPointingToInnerConst &&
-		RHS.Value->getType()->isPointerTy() && RHS.IsInnerConstPointer) {
+	if (pLeftOp.Value->getType()->getNonOpaquePointerElementType()->isPointerTy() && !pLeftOp.IsPointingToInnerConst &&
+		RightOp.Value->getType()->isPointerTy() && RightOp.IsInnerConstPointer) {
 		throw std::domain_error("Inner-const pointer cannot assign to a non-inner-const pointer.");
 		return NULL;
 	}
 
-	RHS.Value = TypeCasting(RHS, pLHS.Value->getType()->getNonOpaquePointerElementType(), Generator);
-	if (RHS.Value == NULL) {
+	RightOp.Value = TypeCasting(RightOp, pLeftOp.Value->getType()->getNonOpaquePointerElementType(), Generator);
+	if (RightOp.Value == NULL) {
 		throw std::domain_error("Assignment with values that cannot be cast to the target type.");
 		return NULL;
 	}
-	IRBuilder.CreateStore(RHS.Value, pLHS.Value);
-	return pLHS.Value;
+	GlobalBuilder.CreateStore(RightOp.Value, pLeftOp.Value);
+	return pLeftOp.Value;
 }
 
 //Create a load instruction.
-//This is different to IRBuilder.CreateLoad.
+//This is different to GlobalBuilder.CreateLoad.
 //If the argument is a pointer to an array, this function will
 //return a pointer to its first element, instead of loading an array.
 //This compiles with the C standard. For example:
 //int a[10];
 //int * b = a;	//When used as a right value, "a" is an integer pointer instead of an array. 
-llvm::Value* CreateLoad(llvm::Value* pLHS, CodeGenerator& Generator) {
+llvm::Value* CreateLoad(llvm::Value* pLeftOp, CodeGenerator& Generator) {
 	//For array types, return the pointer to its first element
-	if (pLHS->getType()->getNonOpaquePointerElementType()->isArrayTy())
-		return IRBuilder.CreatePointerCast(pLHS, pLHS->getType()->getNonOpaquePointerElementType()->getArrayElementType()->getPointerTo());
+	if (pLeftOp->getType()->getNonOpaquePointerElementType()->isArrayTy())
+		return GlobalBuilder.CreatePointerCast(pLeftOp, pLeftOp->getType()->getNonOpaquePointerElementType()->getArrayElementType()->getPointerTo());
 	else
-		return IRBuilder.CreateLoad(pLHS->getType()->getNonOpaquePointerElementType(), pLHS);
+		return GlobalBuilder.CreateLoad(pLeftOp->getType()->getNonOpaquePointerElementType(), pLeftOp);
 }
