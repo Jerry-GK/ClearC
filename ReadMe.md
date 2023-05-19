@@ -30,14 +30,14 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
    **Pointers can NOT do self-increment/decrement in ClearC**. Pointer calculation is also not recommended.
 
    example.
-   
+
    ```c
    int a = 1;
    ptr<int> pa = addr(a);
    dptr(pa) = dptr(pa) + 1; //or pa[0] = pa[0] + 1;
    pa++; //illegal
    ```
-   
+
 3. **Array**:
 
    array in ClearC has very limited functionality.
@@ -293,90 +293,102 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 11. OOP (Encapsulation)
 
-       We want to make the OOP style like golang, but a little different.
+        We want to make the OOP style like golang, but a little different.
 
-      `func BaseType : funcname(args list) -> return type {funcbody}`
+       `func BaseType : funcname(args list) -> return type {funcbody}`    
 
-     
-
-      typedef Student struct {
-        int id;
-      	float score;
-      };
-
+     ```c
       func Student : SetScore(float score) -> void {
       	this->score = score; 
       }
       //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
       	//this->name = name;
       //}
-
+      
       func Student : GetId() -> int {
       	return this->id;
       }
       //func GetId(const ptr<Student> this) -> int {
       	//return this->id;
       //}
+      
+      Student s;
+      s.SetScore(95);
+      
+      ptr<Student> ps = addr(s);
+      int sid = ps->GetId();
+     ```
 
-       Student s;
-       s.SetScore(95);
+       - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
 
-       ptr<Student> ps = addr(s);
-       int sid = ps->GetId();
-         ```c
-         typedef Student struct {
-         	int id;
-         	float score;
-         };
-         
-         func Student : SetScore(float score) -> void {
-         	this->score = score; 
-         }
-         //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
-         	//this->name = name;
-         //}
-         
-         func Student : GetId() -> int {
-         	return this->id;
-         }
-         //func GetId(const ptr<Student> this) -> int {
-         	//return this->id;
-         //}
-         
-         Student s;
-         s.SetScore(95);
-         
-         ptr<Student> ps = addr(s);
-         int sid = ps->GetId();
-         ```
+       - The basetype must be a struct type defined by programmers.
 
-      - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+       - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
 
-      - The basetype must be a struct type defined by programmers.
+       - Call a member function of other types(structs) will raise semantic error.
 
-      - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+       - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
 
-      - Call a member function of other types(structs) will raise semantic error.
+       - Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.
 
-      - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+           
 
-      - Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.
+12. Supported operatiors
 
-          
+     ClearC supports almost all operators in C.
 
-11. String (to do)
+     ```c
+     "<<="													//left shift assign
+     "<<"													//left shift
+     ">>="													//right shift assign
+     ">>"													//right shift
+     "=="													//equal
+     ">="													//greater or equal than
+     ">"														//greater than
+     "<="													//less or equal than
+     "<"														//less than
+     "!="													//not equal
+     "!"														//not
+     "="														//direct assign
+     "&&"													//and
+     "&="													//binary and assign
+     "&"														//binary and
+     "||"													//or
+     "|="													//binary or assign
+     "|"														//binary or
+     "^="													//binary xor assign
+     "^"														//binary xor
+     "~"														//binary not
+     "++"													//postfix/prefix increment
+     "+="													//add assign
+     "+"														//add
+     "--"													//postfix/prefix decrement
+     "-="													//substract assign
+     "-"														//sunstract
+     "*="													//multiply assign
+     "*"														//multiply
+     "/="													//divide assign
+     "/"														//divide
+     "%="													//modulo assign
+     "%"														//modulo
+     "?:"													//ternary operator
+     ```
 
-    Should we make **string** a primitive data type? Maybe not.
+     
 
-    Array<char, len> cannot be initialize by literal string such as "hello", this is a huge problem.
+13. String (to do)
 
-12. Function Declaration (To do)
+     Should we make **string** a primitive data type? Maybe not.
 
-    We think function declarations is redundant and unnecessary, so we want to elimate them.
+     Array<char, len> cannot be initialize by literal string such as "hello", this is a huge problem.
 
-    But we do not pre-scan the AST, so it's difficult.
+14. Function Declaration (To do)
 
-    
+     We think function declarations is redundant and unnecessary, so we want to elimate them.
+
+     But we do not pre-scan the AST, so it's difficult.
+
+     
 
 ## Language Limitations
 

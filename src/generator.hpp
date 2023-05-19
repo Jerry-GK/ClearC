@@ -43,11 +43,11 @@ enum AddFunctionReseult {
     ADDFUNC_ERROR //Other errors
 };
 
-class CodeGenerator {
+class Generator {
 public:
     llvm::Module* Module;
 public:
-    CodeGenerator(void);
+    Generator(void);
 
     //Sizeof()
     llvm::TypeSize GetTypeSize(llvm::Type* Type);

@@ -4,7 +4,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include "codegen.hpp"
+#include "generator.hpp"
 
 //Cast a integer, or a floating-point number, or a pointer to bool
 llvm::Value* CastToBool(llvm::Value* Value) {
@@ -28,7 +28,7 @@ llvm::Value* CastToBool(llvm::Value* Value) {
 //2. Float -> Int, Float
 //3. Pointer -> Int, Pointer (same basetype)
 //Other types are not supported, and will return NULL.
-llvm::Value* TypeCasting(ast::MyValue MyVal, llvm::Type* Type, CodeGenerator& Gen) {
+llvm::Value* TypeCasting(ast::MyValue MyVal, llvm::Type* Type, Generator& Gen) {
 	llvm::Value* Value = MyVal.Value;
 	if (Value->getType() == Type) {
 		return Value;
@@ -166,7 +166,7 @@ llvm::BranchInst* TerminateBlockByBr(llvm::BasicBlock* BB) {
 		return NULL;
 }
 
-llvm::Value* CreateAdd(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateAdd(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
 		if (LeftOp.Value->getType()->isIntegerTy())
 			return GlobalBuilder.CreateAdd(LeftOp.Value, RightOp.Value);
@@ -185,7 +185,7 @@ llvm::Value* CreateAdd(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	return NULL;
 }
 
-llvm::Value* CreateSub(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateSub(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
 		if (LeftOp.Value->getType()->isIntegerTy())
 			return GlobalBuilder.CreateSub(LeftOp.Value, RightOp.Value);
@@ -201,7 +201,7 @@ llvm::Value* CreateSub(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	return NULL;
 }
 
-llvm::Value* CreateMul(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateMul(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
 		if (LeftOp.Value->getType()->isIntegerTy())
 			return GlobalBuilder.CreateMul(LeftOp.Value, RightOp.Value);
@@ -214,7 +214,7 @@ llvm::Value* CreateMul(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	}
 }
 
-llvm::Value* CreateDiv(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateDiv(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
 		if (LeftOp.Value->getType()->isIntegerTy())
 			return GlobalBuilder.CreateSDiv(LeftOp.Value, RightOp.Value);
@@ -227,7 +227,7 @@ llvm::Value* CreateDiv(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	}
 }
 
-llvm::Value* CreateMod(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateMod(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::logic_error("Modulo operator \"%\" can be applied between 2 integers");
 		return NULL;
@@ -236,7 +236,7 @@ llvm::Value* CreateMod(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	return GlobalBuilder.CreateSRem(LeftOp.Value, RightOp.Value);
 }
 
-llvm::Value* CreateShl(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateShl(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::logic_error("Left shifting operator \"<<\" can be applied between 2 integers");
 		return NULL;
@@ -245,7 +245,7 @@ llvm::Value* CreateShl(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	return GlobalBuilder.CreateShl(LeftOp.Value, RightOp.Value);
 }
 
-llvm::Value* CreateShr(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateShr(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::logic_error("Left shifting operator \"<<\" can be applied between 2 integers");
 		return NULL;
@@ -254,7 +254,7 @@ llvm::Value* CreateShr(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator&
 	return GlobalBuilder.CreateAShr(LeftOp.Value, RightOp.Value);
 }
 
-llvm::Value* CreateBitwiseAND(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateBitwiseAND(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::logic_error("Bitwise AND operator \"&\" can be applied between 2 integers");
 		return NULL;
@@ -263,7 +263,7 @@ llvm::Value* CreateBitwiseAND(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGen
 	return GlobalBuilder.CreateAnd(LeftOp.Value, RightOp.Value);
 }
 
-llvm::Value* CreateBitwiseOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateBitwiseOR(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::logic_error("Bitwise OR operator \"|\" can be applied between 2 integers");
 		return NULL;
@@ -272,7 +272,7 @@ llvm::Value* CreateBitwiseOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGene
 	return GlobalBuilder.CreateOr(LeftOp.Value, RightOp.Value);
 }
 
-llvm::Value* CreateBitwiseXOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateBitwiseXOR(ast::MyValue LeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (!(LeftOp.Value->getType()->isIntegerTy() && RightOp.Value->getType()->isIntegerTy())) {
 		throw std::logic_error("Bitwise XOR operator \"^\" can be applied between 2 integers");
 		return NULL;
@@ -282,7 +282,7 @@ llvm::Value* CreateBitwiseXOR(ast::MyValue LeftOp, ast::MyValue RightOp, CodeGen
 }
 
 //Create an assignment. This function will automatically do type casting
-llvm::Value* CreateAssignment(ast::MyValue pLeftOp, ast::MyValue RightOp, CodeGenerator& Generator) {
+llvm::Value* CreateAssignment(ast::MyValue pLeftOp, ast::MyValue RightOp, Generator& Gen) {
 	if (pLeftOp.Value->getType()->getNonOpaquePointerElementType()->isArrayTy())
 	{
 		throw std::logic_error("Array type (const ptr) variable cannot be assigned");
@@ -300,7 +300,7 @@ llvm::Value* CreateAssignment(ast::MyValue pLeftOp, ast::MyValue RightOp, CodeGe
 		return NULL;
 	}
 
-	RightOp.Value = TypeCasting(RightOp, pLeftOp.Value->getType()->getNonOpaquePointerElementType(), Generator);
+	RightOp.Value = TypeCasting(RightOp, pLeftOp.Value->getType()->getNonOpaquePointerElementType(), Gen);
 	if (RightOp.Value == NULL) {
 		throw std::logic_error("Assignment with values that cannot be cast to the target type");
 		return NULL;
@@ -309,7 +309,7 @@ llvm::Value* CreateAssignment(ast::MyValue pLeftOp, ast::MyValue RightOp, CodeGe
 	return pLeftOp.Value;
 }
 
-llvm::Value* CreateLoad(llvm::Value* pLeftOp, CodeGenerator& Generator) {
+llvm::Value* CreateLoad(llvm::Value* pLeftOp, Generator& Gen) {
 	if (pLeftOp->getType()->getNonOpaquePointerElementType()->isArrayTy())
 		return GlobalBuilder.CreatePointerCast(pLeftOp, pLeftOp->getType()->getNonOpaquePointerElementType()->getArrayElementType()->getPointerTo());
 	else

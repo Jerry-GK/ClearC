@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include "ast.hpp"
-#include "codegen.hpp"
+#include "generator.hpp"
 #include "../include/util.h"
 #include "../include/command.h"
 
@@ -21,6 +21,7 @@ int main(int argc, const char* argv[]) {
     }
     catch (const std::exception& e) {
         PrintError("[Command Error]: " + string(e.what()));
+        PrintMsg("[Usage]: " + string(argv[0]) + " (<Optimize level like -O3> optional)  <input file> -o <output file>");
         return 1;
     }
     string InputFile = cp->GetInputFile();
@@ -46,7 +47,7 @@ int main(int argc, const char* argv[]) {
 
 
     //Generate IR code
-    CodeGenerator Gen;
+    Generator Gen;
     try {
         Gen.GenerateIRCode(*Root);
     }

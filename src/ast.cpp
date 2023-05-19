@@ -1,10 +1,10 @@
-#include "codegen.hpp"
+#include "generator.hpp"
 #include "llvm_util.hpp"
 
-//Namespace of AST
+//namespace of ast
 namespace ast {
     //Program
-    MyValue Program::codegen(CodeGenerator& Gen) {
+    MyValue Program::codegen(Generator& Gen) {
         for (auto Decl : *(this->_Decls))
             if (Decl)	//We allow empty-declaration which is represented by NULL pointer.
                 Decl->codegen(Gen);
@@ -12,7 +12,7 @@ namespace ast {
     }
 
     //Function declaration
-    MyValue FuncDecl::codegen(CodeGenerator& Gen) {
+    MyValue FuncDecl::codegen(Generator& Gen) {
         std::vector<llvm::Type*> ArgTypes;
         bool HasBaseType = !this->_TypeName.empty();
 
@@ -189,7 +189,7 @@ namespace ast {
     }
 
     //Function body
-    MyValue FuncBody::codegen(CodeGenerator& Gen) {
+    MyValue FuncBody::codegen(Generator& Gen) {
         for (auto& Stmt : *(this->_Content))
             if (GlobalBuilder.GetInsertBlock()->getTerminator())
                 break;
@@ -204,7 +204,7 @@ namespace ast {
     }
 
     //Variable declaration
-    MyValue VarDecl::codegen(CodeGenerator& Gen) {
+    MyValue VarDecl::codegen(Generator& Gen) {
         //Get the llvm type
         llvm::Type* VarType = this->_VarType->GetLLVMType(Gen);
         if (VarType == NULL) {
@@ -316,7 +316,7 @@ namespace ast {
     }
 
     //Type declaration
-    MyValue TypeDecl::codegen(CodeGenerator& Gen) {
+    MyValue TypeDecl::codegen(Generator& Gen) {
         llvm::Type* LLVMType;
         if (this->_VarType->isStructType())
             LLVMType = ((ast::StructType*)this->_VarType)->GenerateStructTypeHead(Gen, this->_Alias);
@@ -341,7 +341,7 @@ namespace ast {
     }
 
     //Builtin type
-    llvm::Type* BuiltInType::GetLLVMType(CodeGenerator& Gen) {
+    llvm::Type* BuiltInType::GetLLVMType(Generator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
         switch (this->_Type) {
@@ -359,7 +359,7 @@ namespace ast {
     }
 
     //Defined type
-    llvm::Type* DefinedType::GetLLVMType(CodeGenerator& Gen) {
+    llvm::Type* DefinedType::GetLLVMType(Generator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
         this->_LLVMType = Gen.FindType(this->_Name)->LLVMType;
@@ -371,7 +371,7 @@ namespace ast {
     }
 
     //Pointer type.
-    llvm::Type* PointerType::GetLLVMType(CodeGenerator& Gen) {
+    llvm::Type* PointerType::GetLLVMType(Generator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
         llvm::Type* BaseType = this->_BaseType->GetLLVMType(Gen);
@@ -379,7 +379,7 @@ namespace ast {
     }
 
     //Array type.
-    llvm::Type* ArrayType::GetLLVMType(CodeGenerator& Gen) {
+    llvm::Type* ArrayType::GetLLVMType(Generator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
         if (this->_BaseType->_isConst) {
@@ -395,19 +395,19 @@ namespace ast {
     }
 
     //Struct type.
-    llvm::Type* StructType::GetLLVMType(CodeGenerator& Gen) {
+    llvm::Type* StructType::GetLLVMType(Generator& Gen) {
         if (this->_LLVMType)
             return this->_LLVMType;
         //Create an anonymous identified struct type
         this->GenerateStructTypeHead(Gen);
         return this->GenerateStructTypeBody(Gen);
     }
-    llvm::Type* StructType::GenerateStructTypeHead(CodeGenerator& Gen, const std::string& __Name) {
+    llvm::Type* StructType::GenerateStructTypeHead(Generator& Gen, const std::string& __Name) {
         auto LLVMType = llvm::StructType::create(GlobalContext, "struct" + __Name);
         Gen.AddStructType(LLVMType, this);
         return this->_LLVMType = LLVMType;
     }
-    llvm::Type* StructType::GenerateStructTypeBody(CodeGenerator& Gen) {
+    llvm::Type* StructType::GenerateStructTypeBody(Generator& Gen) {
         std::vector<llvm::Type*> Members;
         for (auto FDecl : *(this->_StructBody))
             if (FDecl->_VarType->GetLLVMType(Gen)->isVoidTy()) {
@@ -430,7 +430,7 @@ namespace ast {
     }
 
     //Block
-    MyValue Block::codegen(CodeGenerator& Gen) {
+    MyValue Block::codegen(Generator& Gen) {
         Gen.PushSymbolTable();
         for (auto& Stmt : *(this->_Content))
             if (GlobalBuilder.GetInsertBlock()->getTerminator())
@@ -442,7 +442,7 @@ namespace ast {
     }
 
     //If
-    MyValue IfStmt::codegen(CodeGenerator& Gen) {
+    MyValue IfStmt::codegen(Generator& Gen) {
         MyValue Condition = this->_Condition->codegen(Gen);
         if (!(Condition.Value = CastToBool(Condition.Value))) {
             throw std::logic_error("The condition expression of if-statement must be either integer, floating-point, or pointer type");
@@ -479,7 +479,7 @@ namespace ast {
     }
 
     //For
-    MyValue ForStmt::codegen(CodeGenerator& Gen) {
+    MyValue ForStmt::codegen(Generator& Gen) {
         //Create blocks "ForCond", "ForLoop", "ForTail" and "ForEnd"
         llvm::Function* CurrentFunc = Gen.GetCurFunction()->LLVMFunc;
         llvm::BasicBlock* ForCondBB = llvm::BasicBlock::Create(GlobalContext, "ForCond");
@@ -530,7 +530,7 @@ namespace ast {
     }
 
     //Switch
-    MyValue SwitchStmt::codegen(CodeGenerator& Gen) {
+    MyValue SwitchStmt::codegen(Generator& Gen) {
         llvm::Function* CurrentFunc = Gen.GetCurFunction()->LLVMFunc;
         MyValue Matcher = this->_Matcher->codegen(Gen);
         std::vector<llvm::BasicBlock*> CaseBB;
@@ -575,7 +575,7 @@ namespace ast {
     }
 
     //Case
-    MyValue CaseStmt::codegen(CodeGenerator& Gen) {
+    MyValue CaseStmt::codegen(Generator& Gen) {
         for (auto& Stmt : *(this->_Content))
             if (GlobalBuilder.GetInsertBlock()->getTerminator())
                 break;
@@ -586,7 +586,7 @@ namespace ast {
     }
 
     //Continue
-    MyValue ContinueStmt::codegen(CodeGenerator& Gen) {
+    MyValue ContinueStmt::codegen(Generator& Gen) {
         llvm::BasicBlock* ContinueTarget = Gen.GetContinueBlock();
         if (ContinueTarget)
             GlobalBuilder.CreateBr(ContinueTarget);
@@ -596,7 +596,7 @@ namespace ast {
     }
 
     //Break
-    MyValue BreakStmt::codegen(CodeGenerator& Gen) {
+    MyValue BreakStmt::codegen(Generator& Gen) {
         llvm::BasicBlock* BreakTarget = Gen.GetBreakBlock();
         if (BreakTarget)
             GlobalBuilder.CreateBr(BreakTarget);
@@ -606,7 +606,7 @@ namespace ast {
     }
 
     //Return
-    MyValue ReturnStmt::codegen(CodeGenerator& Gen) {
+    MyValue ReturnStmt::codegen(Generator& Gen) {
         llvm::Function* Func = Gen.GetCurFunction()->LLVMFunc;
         if (!Func) {
             throw std::logic_error("Using \"return\" not in a function body");
@@ -642,11 +642,11 @@ namespace ast {
     }
 
     //Subscript, like a[1]
-    MyValue Subscript::codegen(CodeGenerator& Gen) {
+    MyValue Subscript::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue Subscript::codegenPtr(CodeGenerator& Gen) {
+    MyValue Subscript::codegenPtr(Generator& Gen) {
         MyValue ArrayPtr = this->_Array->codegen(Gen);
         if (!ArrayPtr.Value->getType()->isPointerTy()) {
             throw std::logic_error("Subscript operator \"[]\" must be applied to pointers or arrays");
@@ -662,7 +662,7 @@ namespace ast {
     }
 
     //sizeof()
-    MyValue SizeOf::codegen(CodeGenerator& Gen) {
+    MyValue SizeOf::codegen(Generator& Gen) {
         if (this->_Arg1)//Expr
             return MyValue(GlobalBuilder.getInt64(Gen.GetTypeSize(this->_Arg1->codegen(Gen).Value->getType())));
         else if (this->_Arg2)//Type
@@ -682,13 +682,13 @@ namespace ast {
             return MyValue();
         }
     }
-    MyValue SizeOf::codegenPtr(CodeGenerator& Gen) {
+    MyValue SizeOf::codegenPtr(Generator& Gen) {
         throw std::logic_error("Sizeof() returns a right value");
         return MyValue();
     }
 
     //Function call
-    MyValue FunctionCall::codegen(CodeGenerator& Gen) {
+    MyValue FunctionCall::codegen(Generator& Gen) {
         ast::MyFunction* MyFunc = Gen.FindFunction(this->_FuncName);
         auto curMyFunc = Gen.GetCurFunction();
         if (MyFunc == NULL) {
@@ -781,17 +781,17 @@ namespace ast {
         }
         return MyValue(GlobalBuilder.CreateCall(Func, ArgList), "", RetType->_isConst, isInnerConst);
     }
-    MyValue FunctionCall::codegenPtr(CodeGenerator& Gen) {
+    MyValue FunctionCall::codegenPtr(Generator& Gen) {
         throw std::logic_error("Function call returns a right value");
         return MyValue();
     }
 
     //Structure reference, like a.x
-    MyValue StructReference::codegen(CodeGenerator& Gen) {
+    MyValue StructReference::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue StructReference::codegenPtr(CodeGenerator& Gen) {
+    MyValue StructReference::codegenPtr(Generator& Gen) {
         MyValue StructPtr = this->_Struct->codegenPtr(Gen);
         if (!StructPtr.Value->getType()->isPointerTy() || !StructPtr.Value->getType()->getNonOpaquePointerElementType()->isStructTy()) {
             throw std::logic_error("Reference operator \".\" must be applied to structs");
@@ -822,11 +822,11 @@ namespace ast {
     }
 
     //Structure dereference, like a->x
-    MyValue StructDereference::codegen(CodeGenerator& Gen) {
+    MyValue StructDereference::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue StructDereference::codegenPtr(CodeGenerator& Gen) {
+    MyValue StructDereference::codegenPtr(Generator& Gen) {
         MyValue StructPtr = this->_StructPtr->codegen(Gen);
         if (!StructPtr.Value->getType()->isPointerTy() || !StructPtr.Value->getType()->getNonOpaquePointerElementType()->isStructTy()) {
             throw std::logic_error("Dereference operator \"->\" must be applied to structs");
@@ -858,7 +858,7 @@ namespace ast {
     }
 
     //Unary plus
-    MyValue UnaryPlus::codegen(CodeGenerator& Gen) {
+    MyValue UnaryPlus::codegen(Generator& Gen) {
         MyValue Operand = this->_Operand->codegen(Gen);
         if (!(
             Operand.Value->getType()->isIntegerTy() ||
@@ -867,13 +867,13 @@ namespace ast {
             throw std::logic_error("Unary plus must be applied to integers or floating-point numbers");
         return MyValue(Operand);
     }
-    MyValue UnaryPlus::codegenPtr(CodeGenerator& Gen) {
+    MyValue UnaryPlus::codegenPtr(Generator& Gen) {
         throw std::logic_error("Unary plus returns a right value");
         return MyValue();
     }
 
     //Unary minus
-    MyValue UnaryMinus::codegen(CodeGenerator& Gen) {
+    MyValue UnaryMinus::codegen(Generator& Gen) {
         MyValue Operand = this->_Operand->codegen(Gen);
         if (!(
             Operand.Value->getType()->isIntegerTy() ||
@@ -885,13 +885,13 @@ namespace ast {
         else
             return MyValue(GlobalBuilder.CreateFNeg(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer);
     }
-    MyValue UnaryMinus::codegenPtr(CodeGenerator& Gen) {
+    MyValue UnaryMinus::codegenPtr(Generator& Gen) {
         throw std::logic_error("Unary minus returns a right value");
         return MyValue();
     }
 
     //typecast
-    MyValue TypeCast::codegen(CodeGenerator& Gen) {
+    MyValue TypeCast::codegen(Generator& Gen) {
         MyValue MyVal = this->_Operand->codegen(Gen);
         if (MyVal.IsInnerConstPointer
             && !(this->_VarType->isPointerType() && ((PointerType*)(this->_VarType))->isInnerConst())) {
@@ -906,17 +906,17 @@ namespace ast {
         }
         return Ret;
     }
-    MyValue TypeCast::codegenPtr(CodeGenerator& Gen) {
+    MyValue TypeCast::codegenPtr(Generator& Gen) {
         throw std::logic_error("Type casting returns a right value");
         return MyValue();
     }
 
     //Prefix-increment
-    MyValue PrefixInc::codegen(CodeGenerator& Gen) {
+    MyValue PrefixInc::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue PrefixInc::codegenPtr(CodeGenerator& Gen) {
+    MyValue PrefixInc::codegenPtr(Generator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
             throw std::logic_error("Const variable cannot do prefix increment");
@@ -934,7 +934,7 @@ namespace ast {
     }
 
     //Postfix-increment
-    MyValue PostfixInc::codegen(CodeGenerator& Gen) {
+    MyValue PostfixInc::codegen(Generator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
             throw std::logic_error("Const variable cannot do postfix increment");
@@ -950,17 +950,17 @@ namespace ast {
         GlobalBuilder.CreateStore(OpValuePlus.Value, Operand.Value);
         return MyValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
-    MyValue PostfixInc::codegenPtr(CodeGenerator& Gen) {
+    MyValue PostfixInc::codegenPtr(Generator& Gen) {
         throw std::logic_error("Postfix increment returns a right value");
         return MyValue();
     }
 
     //Prefix-decrement
-    MyValue PrefixDec::codegen(CodeGenerator& Gen) {
+    MyValue PrefixDec::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue PrefixDec::codegenPtr(CodeGenerator& Gen) {
+    MyValue PrefixDec::codegenPtr(Generator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
             throw std::logic_error("Const variable cannot do prefix decrement");
@@ -978,7 +978,7 @@ namespace ast {
     }
 
     //Postfix-decrement
-    MyValue PostfixDec::codegen(CodeGenerator& Gen) {
+    MyValue PostfixDec::codegen(Generator& Gen) {
         MyValue Operand = this->_Operand->codegenPtr(Gen);
         if (Operand.IsInnerConstPointer) {
             throw std::logic_error("Const variable cannot do postfix decrement");
@@ -994,17 +994,17 @@ namespace ast {
         GlobalBuilder.CreateStore(OpValueMinus.Value, Operand.Value);
         return MyValue(OpValue.Value, Operand.Name, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
-    MyValue PostfixDec::codegenPtr(CodeGenerator& Gen) {
+    MyValue PostfixDec::codegenPtr(Generator& Gen) {
         throw std::logic_error("Postfix decrement returns a right value");
         return MyValue();
     }
 
     //Indirection
-    MyValue Indirection::codegen(CodeGenerator& Gen) {
+    MyValue Indirection::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue Indirection::codegenPtr(CodeGenerator& Gen) {
+    MyValue Indirection::codegenPtr(Generator& Gen) {
         MyValue Ptr = this->_Operand->codegen(Gen);
         if (!Ptr.Value->getType()->isPointerTy()) {
             throw std::logic_error("Indirection operator \"dptr()\" only applies on pointers or arrays");
@@ -1014,26 +1014,26 @@ namespace ast {
     }
 
     //Fetch addres
-    MyValue AddressOf::codegen(CodeGenerator& Gen) {
+    MyValue AddressOf::codegen(Generator& Gen) {
         return MyValue(this->_Operand->codegenPtr(Gen));
     }
-    MyValue AddressOf::codegenPtr(CodeGenerator& Gen) {
+    MyValue AddressOf::codegenPtr(Generator& Gen) {
         throw std::logic_error("Address operator \"addr()\" returns a right value");
         return MyValue();
     }
 
     //Logic NOT
-    MyValue LogicNot::codegen(CodeGenerator& Gen) {
+    MyValue LogicNot::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(GlobalBuilder.CreateICmpEQ(CastToBool(MyVal.Value), GlobalBuilder.getInt1(false)), MyVal.Name, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue LogicNot::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicNot::codegenPtr(Generator& Gen) {
         throw std::logic_error("Logic NOT operator \"!\" returns a right value");
         return MyValue();
     }
 
     //Bitwise NOT
-    MyValue BitwiseNot::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseNot::codegen(Generator& Gen) {
         MyValue Operand = this->_Operand->codegen(Gen);
         if (!Operand.Value->getType()->isIntegerTy()) {
             throw std::logic_error("Bitwise NOT operator \"~\" must be applied to integers");
@@ -1041,90 +1041,90 @@ namespace ast {
         }
         return MyValue(GlobalBuilder.CreateNot(Operand.Value), Operand.Name, Operand.IsConst, Operand.IsInnerConstPointer, Operand.IsPointingToInnerConst);
     }
-    MyValue BitwiseNot::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseNot::codegenPtr(Generator& Gen) {
         throw std::logic_error("Bitwise NOT operator \"~\" returns a right value");
         return MyValue();
     }
 
     //Division
-    MyValue Division::codegen(CodeGenerator& Gen) {
+    MyValue Division::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateDiv(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue Division::codegenPtr(CodeGenerator& Gen) {
+    MyValue Division::codegenPtr(Generator& Gen) {
         throw std::logic_error("Division operator \"/\" returns a right value");
         return MyValue();
     }
 
     //Multiplication
-    MyValue Multiplication::codegen(CodeGenerator& Gen) {
+    MyValue Multiplication::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateMul(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue Multiplication::codegenPtr(CodeGenerator& Gen) {
+    MyValue Multiplication::codegenPtr(Generator& Gen) {
         throw std::logic_error("Multiplication operator \"*\" returns a right value");
         return MyValue();
     }
 
     //Modulo
-    MyValue Modulo::codegen(CodeGenerator& Gen) {
+    MyValue Modulo::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateMod(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue Modulo::codegenPtr(CodeGenerator& Gen) {
+    MyValue Modulo::codegenPtr(Generator& Gen) {
         throw std::logic_error("Modulo operator \"%\" returns a right value");
         return MyValue();
     }
 
     //Addition
-    MyValue Addition::codegen(CodeGenerator& Gen) {
+    MyValue Addition::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAdd(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue Addition::codegenPtr(CodeGenerator& Gen) {
+    MyValue Addition::codegenPtr(Generator& Gen) {
         throw std::logic_error("Addition operator \"+\" returns a right value");
         return MyValue();
     }
 
     //Subtraction
-    MyValue Subtraction::codegen(CodeGenerator& Gen) {
+    MyValue Subtraction::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateSub(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue Subtraction::codegenPtr(CodeGenerator& Gen) {
+    MyValue Subtraction::codegenPtr(Generator& Gen) {
         throw std::logic_error("Subtraction operator \"-\" returns a right value");
         return MyValue();
     }
 
     //LeftShift
-    MyValue LeftShift::codegen(CodeGenerator& Gen) {
+    MyValue LeftShift::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateShl(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue LeftShift::codegenPtr(CodeGenerator& Gen) {
+    MyValue LeftShift::codegenPtr(Generator& Gen) {
         throw std::logic_error("Left shifting operator \"<<\" returns a right value");
         return MyValue();
     }
 
     //RightShift
-    MyValue RightShift::codegen(CodeGenerator& Gen) {
+    MyValue RightShift::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateShr(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue RightShift::codegenPtr(CodeGenerator& Gen) {
+    MyValue RightShift::codegenPtr(Generator& Gen) {
         throw std::logic_error("Right shifting operator \">>\" returns a right value");
         return MyValue();
     }
 
     //LogicGT
-    MyValue LogicGT::codegen(CodeGenerator& Gen) {
+    MyValue LogicGT::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
 
@@ -1154,13 +1154,13 @@ namespace ast {
         }
         throw std::logic_error("Comparison \">\" between uncomparable types");
     }
-    MyValue LogicGT::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicGT::codegenPtr(Generator& Gen) {
         throw std::logic_error("Comparison operator \">\" returns a right value");
         return MyValue();
     }
 
     //LogicGE
-    MyValue LogicGE::codegen(CodeGenerator& Gen) {
+    MyValue LogicGE::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
@@ -1189,13 +1189,13 @@ namespace ast {
         }
         throw std::logic_error("Comparison \">=\" between uncomparable types");
     }
-    MyValue LogicGE::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicGE::codegenPtr(Generator& Gen) {
         throw std::logic_error("Comparison operator \">=\" returns a right value");
         return MyValue();
     }
 
     //LogicLT
-    MyValue LogicLT::codegen(CodeGenerator& Gen) {
+    MyValue LogicLT::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
@@ -1224,13 +1224,13 @@ namespace ast {
         }
         throw std::logic_error("Comparison \"<\" between uncomparable types");
     }
-    MyValue LogicLT::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicLT::codegenPtr(Generator& Gen) {
         throw std::logic_error("Comparison operator \"<\" returns a right value");
         return MyValue();
     }
 
     //LogicL
-    MyValue LogicLE::codegen(CodeGenerator& Gen) {
+    MyValue LogicLE::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
@@ -1259,24 +1259,24 @@ namespace ast {
         }
         throw std::logic_error("Comparison \"<=\" between uncomparable types");
     }
-    MyValue LogicLE::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicLE::codegenPtr(Generator& Gen) {
         throw std::logic_error("Comparison operator \"<=\" returns a right value");
         return MyValue();
     }
 
     //LogicEQ
-    MyValue LogicEQ::codegen(CodeGenerator& Gen) {
+    MyValue LogicEQ::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateCmpEQ(LeftOp.Value, RightOp.Value));
     }
-    MyValue LogicEQ::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicEQ::codegenPtr(Generator& Gen) {
         throw std::logic_error("Comparison operator \"==\" returns a right value");
         return MyValue();
     }
 
     //LogicNEQ
-    MyValue LogicNEQ::codegen(CodeGenerator& Gen) {
+    MyValue LogicNEQ::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         if (TypeUpgrading(LeftOp.Value, RightOp.Value)) {
@@ -1305,46 +1305,46 @@ namespace ast {
         }
         throw std::logic_error("Comparison \"!=\" between uncomparable types");
     }
-    MyValue LogicNEQ::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicNEQ::codegenPtr(Generator& Gen) {
         throw std::logic_error("Comparison operator \"!=\" returns a right value");
         return MyValue();
     }
 
     //BitwiseAND
-    MyValue BitwiseAND::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseAND::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateBitwiseAND(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue BitwiseAND::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseAND::codegenPtr(Generator& Gen) {
         throw std::logic_error("Bitwise AND operator \"&\" returns a right value");
         return MyValue();
     }
 
     //BitwiseXOR
-    MyValue BitwiseXOR::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseXOR::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateBitwiseXOR(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue BitwiseXOR::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseXOR::codegenPtr(Generator& Gen) {
         throw std::logic_error("Bitwise XOR operator \"^\" returns a right value");
         return MyValue();
     }
 
     //BitwiseOR
-    MyValue BitwiseOR::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseOR::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateBitwiseOR(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
-    MyValue BitwiseOR::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseOR::codegenPtr(Generator& Gen) {
         throw std::logic_error("Bitwise OR operator \"|\" returns a right value");
         return MyValue();
     }
 
     //LogicAND
-    MyValue LogicAND::codegen(CodeGenerator& Gen) {
+    MyValue LogicAND::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         LeftOp = MyValue(CastToBool(LeftOp.Value));
@@ -1359,13 +1359,13 @@ namespace ast {
         }
         return MyValue(GlobalBuilder.CreateLogicalAnd(LeftOp.Value, RightOp.Value));
     }
-    MyValue LogicAND::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicAND::codegenPtr(Generator& Gen) {
         throw std::logic_error("Logic AND operator \"&&\" returns a right value");
         return MyValue();
     }
 
     //LogicOR
-    MyValue LogicOR::codegen(CodeGenerator& Gen) {
+    MyValue LogicOR::codegen(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegen(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         LeftOp = MyValue(CastToBool(LeftOp.Value));
@@ -1380,13 +1380,13 @@ namespace ast {
         }
         return MyValue(GlobalBuilder.CreateLogicalOr(LeftOp.Value, RightOp.Value));
     }
-    MyValue LogicOR::codegenPtr(CodeGenerator& Gen) {
+    MyValue LogicOR::codegenPtr(Generator& Gen) {
         throw std::logic_error("Logic OR operator \"||\" returns a right value");
         return MyValue();
     }
 
     //TernaryCondition
-    MyValue TernaryCondition::codegen(CodeGenerator& Gen) {
+    MyValue TernaryCondition::codegen(Generator& Gen) {
         MyValue Condition = MyValue(CastToBool(this->_Condition->codegen(Gen).Value));
         if (Condition.Value == NULL) {
             throw std::logic_error("The first operand of thernary operand \" ? : \" must a boolean expression");
@@ -1403,7 +1403,7 @@ namespace ast {
             return MyValue();
         }
     }
-    MyValue TernaryCondition::codegenPtr(CodeGenerator& Gen) {
+    MyValue TernaryCondition::codegenPtr(Generator& Gen) {
         MyValue Condition = MyValue(CastToBool(this->_Condition->codegen(Gen).Value));
         if (Condition.Value == NULL) {
             throw std::logic_error("The first operand of thernary operand \" ? : \" must a boolean expression");
@@ -1419,22 +1419,22 @@ namespace ast {
     }
 
     //DirectAssign
-    MyValue DirectAssign::codegen(CodeGenerator& Gen) {
+    MyValue DirectAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue DirectAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue DirectAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp, RightOp, Gen), LeftOp.Name, LeftOp.IsConst, LeftOp.IsInnerConstPointer || RightOp.IsInnerConstPointer, LeftOp.IsPointingToInnerConst);
     }
 
     //DivAssign
-    MyValue DivAssign::codegen(CodeGenerator& Gen) {
+    MyValue DivAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue DivAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue DivAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
 
@@ -1450,11 +1450,11 @@ namespace ast {
     }
 
     //MulAssign
-    MyValue MulAssign::codegen(CodeGenerator& Gen) {
+    MyValue MulAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue MulAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue MulAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1469,11 +1469,11 @@ namespace ast {
     }
 
     //ModAssign
-    MyValue ModAssign::codegen(CodeGenerator& Gen) {
+    MyValue ModAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue ModAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue ModAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1488,11 +1488,11 @@ namespace ast {
     }
 
     //AddAssign
-    MyValue AddAssign::codegen(CodeGenerator& Gen) {
+    MyValue AddAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue AddAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue AddAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1507,11 +1507,11 @@ namespace ast {
     }
 
     //SubAssign
-    MyValue SubAssign::codegen(CodeGenerator& Gen) {
+    MyValue SubAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue SubAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue SubAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1526,11 +1526,11 @@ namespace ast {
     }
 
     //SHLAssign
-    MyValue SHLAssign::codegen(CodeGenerator& Gen) {
+    MyValue SHLAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue SHLAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue SHLAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1545,11 +1545,11 @@ namespace ast {
     }
 
     //SHRAssign
-    MyValue SHRAssign::codegen(CodeGenerator& Gen) {
+    MyValue SHRAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue SHRAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue SHRAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1564,11 +1564,11 @@ namespace ast {
     }
 
     //BitwiseANDAssign
-    MyValue BitwiseANDAssign::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseANDAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue BitwiseANDAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseANDAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1583,11 +1583,11 @@ namespace ast {
     }
 
     //BitwiseXORAssign
-    MyValue BitwiseXORAssign::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseXORAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue BitwiseXORAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseXORAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1602,11 +1602,11 @@ namespace ast {
     }
 
     //BitwiseORAssign
-    MyValue BitwiseORAssign::codegen(CodeGenerator& Gen) {
+    MyValue BitwiseORAssign::codegen(Generator& Gen) {
         MyValue MyVal = this->codegenPtr(Gen);
         return MyValue(CreateLoad(MyVal.Value, Gen), MyVal.Name, MyVal.IsConst, MyVal.IsInnerConstPointer, MyVal.IsPointingToInnerConst);
     }
-    MyValue BitwiseORAssign::codegenPtr(CodeGenerator& Gen) {
+    MyValue BitwiseORAssign::codegenPtr(Generator& Gen) {
         MyValue LeftOp = this->_LeftOp->codegenPtr(Gen);
         MyValue RightOp = this->_RightOp->codegen(Gen);
         return MyValue(CreateAssignment(LeftOp,
@@ -1621,17 +1621,17 @@ namespace ast {
     }
 
     //Comma expression
-    MyValue CommaExpr::codegen(CodeGenerator& Gen) {
+    MyValue CommaExpr::codegen(Generator& Gen) {
         this->_LeftOp->codegen(Gen);
         return MyValue(this->_RightOp->codegen(Gen));
     }
-    MyValue CommaExpr::codegenPtr(CodeGenerator& Gen) {
+    MyValue CommaExpr::codegenPtr(Generator& Gen) {
         this->_LeftOp->codegen(Gen);
         return MyValue(this->_RightOp->codegenPtr(Gen));
     }
 
     //Variable
-    MyValue Variable::codegen(CodeGenerator& Gen) {
+    MyValue Variable::codegen(Generator& Gen) {
         const MyValue* VarPtr = Gen.FindVariable(this->_Name);
         if (VarPtr) {
             return MyValue(CreateLoad(VarPtr->Value, Gen), VarPtr->Name, VarPtr->IsConst, VarPtr->IsInnerConstPointer);
@@ -1639,7 +1639,7 @@ namespace ast {
         throw std::logic_error("Identifier \"" + this->_Name + "\" is not a declared variable");
         return MyValue();
     }
-    MyValue Variable::codegenPtr(CodeGenerator& Gen) {
+    MyValue Variable::codegenPtr(Generator& Gen) {
         const MyValue* VarPtr = Gen.FindVariable(this->_Name);
         if (VarPtr) return MyValue(VarPtr->Value, VarPtr->Name, true,
             VarPtr->IsConst, VarPtr->IsInnerConstPointer);
@@ -1649,7 +1649,7 @@ namespace ast {
     }
 
     //Constant
-    MyValue Constant::codegen(CodeGenerator& Gen) {
+    MyValue Constant::codegen(Generator& Gen) {
         switch (this->_Type) {
         case BuiltInType::TypeID::_Bool:
             return MyValue(GlobalBuilder.getInt1(this->_Bool), "", true, false, false);
@@ -1670,21 +1670,21 @@ namespace ast {
             return MyValue();
         }
     }
-    MyValue Constant::codegenPtr(CodeGenerator& Gen) {
+    MyValue Constant::codegenPtr(Generator& Gen) {
         throw std::logic_error("Constant is a right-value");
         return MyValue();
     }
 
     //Global string
-    MyValue GlobalString::codegen(CodeGenerator& Gen) {
+    MyValue GlobalString::codegen(Generator& Gen) {
         return MyValue(GlobalBuilder.CreateGlobalStringPtr(this->_Content.c_str()), "", true, false, false);
     }
-    MyValue GlobalString::codegenPtr(CodeGenerator& Gen) {
+    MyValue GlobalString::codegenPtr(Generator& Gen) {
         throw std::logic_error("Global string is a right value");
         return MyValue();
     }
 
-    MyValue This::codegen(CodeGenerator& Gen) {
+    MyValue This::codegen(Generator& Gen) {
         const MyValue* ThisPtr = Gen.FindVariable("0this");
         if (ThisPtr) {
             return MyValue(CreateLoad(ThisPtr->Value, Gen), ThisPtr->Name, true, false);
@@ -1693,7 +1693,7 @@ namespace ast {
         return MyValue();
     }
 
-    MyValue This::codegenPtr(CodeGenerator& Gen) {
+    MyValue This::codegenPtr(Generator& Gen) {
         const MyValue* ThisPtr = Gen.FindVariable("0this");
         if (ThisPtr) {
             return MyValue(ThisPtr->Value, ThisPtr->Name, true, true);

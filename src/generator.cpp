@@ -1,12 +1,11 @@
-#include "codegen.hpp"
-
+#include "generator.hpp"
 //global llvm context.
 llvm::LLVMContext GlobalContext;
 
 //global llvm builder.
 llvm::IRBuilder<> GlobalBuilder(GlobalContext);
 
-CodeGenerator::CodeGenerator(void) :
+Generator::Generator(void) :
     Module(new llvm::Module("main", GlobalContext)),
     DataLayout(new llvm::DataLayout(Module)),
     CurFunction(NULL),
@@ -18,21 +17,21 @@ CodeGenerator::CodeGenerator(void) :
     EmptyFunc(NULL)
 {}
 
-llvm::TypeSize CodeGenerator::GetTypeSize(llvm::Type* Type) {
+llvm::TypeSize Generator::GetTypeSize(llvm::Type* Type) {
     return this->DataLayout->getTypeAllocSize(Type);
 }
 
-void CodeGenerator::PushSymbolTable(void) {
+void Generator::PushSymbolTable(void) {
     this->SymbolTableStack.push_back(new SymbolTable);
 }
 
-void CodeGenerator::PopSymbolTable(void) {
+void Generator::PopSymbolTable(void) {
     if (this->SymbolTableStack.size() == 0) return;
     delete this->SymbolTableStack.back();
     this->SymbolTableStack.pop_back();
 }
 
-ast::MyFunction* CodeGenerator::FindFunction(std::string Name) {
+ast::MyFunction* Generator::FindFunction(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
     for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
         auto mapIter = (*TableIter)->find(Name);
@@ -42,7 +41,7 @@ ast::MyFunction* CodeGenerator::FindFunction(std::string Name) {
     return NULL;
 }
 
-AddFunctionReseult CodeGenerator::AddFunction(std::string Name, ast::MyFunction* Function) {
+AddFunctionReseult Generator::AddFunction(std::string Name, ast::MyFunction* Function) {
     if (this->SymbolTableStack.size() == 0) return ADDFUNC_ERROR;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
@@ -56,7 +55,7 @@ AddFunctionReseult CodeGenerator::AddFunction(std::string Name, ast::MyFunction*
     return ADDFUNC_SUCCESS;
 }
 
-ast::MyType* CodeGenerator::FindType(std::string Name) {
+ast::MyType* Generator::FindType(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
     for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
         auto mapIter = (*TableIter)->find(Name);
@@ -66,7 +65,7 @@ ast::MyType* CodeGenerator::FindType(std::string Name) {
     return NULL;
 }
 
-bool CodeGenerator::AddType(std::string Name, ast::MyType* Type) {
+bool Generator::AddType(std::string Name, ast::MyType* Type) {
     if (this->SymbolTableStack.size() == 0) return false;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
@@ -76,7 +75,7 @@ bool CodeGenerator::AddType(std::string Name, ast::MyType* Type) {
     return true;
 }
 
-ast::MyValue* CodeGenerator::FindVariable(std::string Name) {
+ast::MyValue* Generator::FindVariable(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
     for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
         auto mapIter = (*TableIter)->find(Name);
@@ -86,7 +85,7 @@ ast::MyValue* CodeGenerator::FindVariable(std::string Name) {
     return NULL;
 }
 
-bool CodeGenerator::AddVariable(std::string Name, ast::MyValue* Variable) {
+bool Generator::AddVariable(std::string Name, ast::MyValue* Variable) {
     if (this->SymbolTableStack.size() == 0) return false;
     auto TopTable = this->SymbolTableStack.back();
     auto mapIter = TopTable->find(Name);
@@ -96,14 +95,14 @@ bool CodeGenerator::AddVariable(std::string Name, ast::MyValue* Variable) {
     return true;
 }
 
-ast::StructType* CodeGenerator::FindStructType(llvm::StructType* Ty1) {
+ast::StructType* Generator::FindStructType(llvm::StructType* Ty1) {
     auto mapIter = this->StructTyTable->find(Ty1);
     if (mapIter != this->StructTyTable->end())
         return mapIter->second;
     return NULL;
 }
 
-bool CodeGenerator::AddStructType(llvm::StructType* Ty1, ast::StructType* Ty2) {
+bool Generator::AddStructType(llvm::StructType* Ty1, ast::StructType* Ty2) {
     auto mapIter = this->StructTyTable->find(Ty1);
     if (mapIter != this->StructTyTable->end())
         return false;
@@ -111,44 +110,44 @@ bool CodeGenerator::AddStructType(llvm::StructType* Ty1, ast::StructType* Ty2) {
     return true;
 }
 
-void CodeGenerator::SetCurFunction(ast::MyFunction* Func) {
+void Generator::SetCurFunction(ast::MyFunction* Func) {
     this->CurFunction = Func;
 }
 
-ast::MyFunction* CodeGenerator::GetCurFunction(void) {
+ast::MyFunction* Generator::GetCurFunction(void) {
     return this->CurFunction;
 }
 
-void CodeGenerator::EnterLoop(llvm::BasicBlock* ContinueBB, llvm::BasicBlock* BreakBB) {
+void Generator::EnterLoop(llvm::BasicBlock* ContinueBB, llvm::BasicBlock* BreakBB) {
     this->ContinueBlockStack.push_back(ContinueBB);
     this->BreakBlockStack.push_back(BreakBB);
 }
 
-void CodeGenerator::LeaveLoop(void) {
+void Generator::LeaveLoop(void) {
     if (this->ContinueBlockStack.size() == 0 || this->BreakBlockStack.size() == 0) return;
     this->ContinueBlockStack.pop_back();
     this->BreakBlockStack.pop_back();
 }
 
-llvm::BasicBlock* CodeGenerator::GetContinueBlock(void) {
+llvm::BasicBlock* Generator::GetContinueBlock(void) {
     if (this->ContinueBlockStack.size() > 0)
         return this->ContinueBlockStack.back();
     else
         return NULL;
 }
 
-llvm::BasicBlock* CodeGenerator::GetBreakBlock(void) {
+llvm::BasicBlock* Generator::GetBreakBlock(void) {
     if (this->BreakBlockStack.size() > 0)
         return this->BreakBlockStack.back();
     else
         return NULL;
 }
 
-llvm::BasicBlock* CodeGenerator::GetEmptyBB(void) {
+llvm::BasicBlock* Generator::GetEmptyBB(void) {
     return this->EmptyBB;
 }
 
-void CodeGenerator::GenerateIRCode(ast::Program& Root) {
+void Generator::GenerateIRCode(ast::Program& Root) {
     //Initialize symbol table
     this->StructTyTable = new StructTable;
     this->PushSymbolTable();
@@ -169,7 +168,7 @@ void CodeGenerator::GenerateIRCode(ast::Program& Root) {
     delete this->StructTyTable; this->StructTyTable = NULL;
 }
 
-void CodeGenerator::OptimizeIRCode(const std::string& OptimizationLevel) {
+void Generator::OptimizeIRCode(const std::string& OptimizationLevel) {
     //Run optimization
     llvm::LoopAnalysisManager LAM;
     llvm::FunctionAnalysisManager FAM;
@@ -205,7 +204,7 @@ void CodeGenerator::OptimizeIRCode(const std::string& OptimizationLevel) {
     MPM.run(*this->Module, MAM);
 }
 
-bool CodeGenerator::OutputIR(std::string FileName) {
+bool Generator::OutputIR(std::string FileName) {
     std::error_code err;
     llvm::raw_fd_ostream Out(FileName, err);
     Out << "===================  IR Code  ===================\n";
@@ -221,7 +220,7 @@ bool CodeGenerator::OutputIR(std::string FileName) {
     }
 }
 
-void CodeGenerator::GenObjectCode(std::string FileName) {
+void Generator::GenObjectCode(std::string FileName) {
     auto target = llvm::sys::getDefaultTargetTriple();
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();

@@ -21,7 +21,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Verifier.h>
 
-class CodeGenerator;
+class Generator;
 
 namespace ast {
     //wrapped class for llvm types
@@ -160,14 +160,14 @@ namespace ast {
 
         ~MyValue(void) {}
 
-        llvm::Value* Value;
-        std::string Name;
+        llvm::Value* Value; //the llvm::Value wrapped inside
+        std::string Name; //no use for now
 
-        bool IsConst;
-        bool IsInnerConstPointer;
-        bool IsPointingToInnerConst;
+        bool IsConst; //whether this value is const
+        bool IsInnerConstPointer;  //whether this value is a inner-const pointer
+        bool IsPointingToInnerConst; //whether this value is pointing to a inner-const pointer value
 
-        bool IsZeroConstant;
+        bool IsZeroConstant; //whether this value is a zero constant(null or 0)
     };
 
     //Virtual class Node
@@ -175,7 +175,7 @@ namespace ast {
     public:
         Node(void) {}
         ~Node(void) {}
-        virtual MyValue codegen(CodeGenerator& Gen) = 0;
+        virtual MyValue codegen(Generator& Gen) = 0;
         virtual std::string nodeJson() = 0;
     };
 
@@ -186,7 +186,7 @@ namespace ast {
 
         Program(Decls* _Decls) :_Decls(_Decls) {}
         ~Program(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
         void genHTML(std::string FileName);
     };
@@ -196,7 +196,7 @@ namespace ast {
     public:
         Stmt(void) {}
         ~Stmt(void) {}
-        virtual MyValue codegen(CodeGenerator& Gen) = 0;
+        virtual MyValue codegen(Generator& Gen) = 0;
         virtual std::string nodeJson() = 0;
     };
 
@@ -205,7 +205,7 @@ namespace ast {
     public:
         Decl(void) {}
         ~Decl(void) {}
-        virtual MyValue codegen(CodeGenerator& Gen) = 0;
+        virtual MyValue codegen(Generator& Gen) = 0;
         virtual std::string nodeJson() = 0;
     };
 
@@ -225,7 +225,7 @@ namespace ast {
         FuncDecl(VarType* __RetType, const std::string& __FuncName, ArgList* __ArgList, const std::string& __TypeName = "", FuncBody* __FuncBody = NULL) :
             _RetType(__RetType), _FuncName(__FuncName), _ArgList(__ArgList), _TypeName(__TypeName), _FuncBody(__FuncBody) {}
         ~FuncDecl(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -236,7 +236,7 @@ namespace ast {
 
         FuncBody(Stmts* __Content) :_Content(__Content) {}
         ~FuncBody(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -249,7 +249,7 @@ namespace ast {
         VarDecl(VarType* __VarType, VarList* __VarList) :
             _VarType(__VarType), _VarList(__VarList) {}
         ~VarDecl(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -264,7 +264,7 @@ namespace ast {
         VarInit(const std::string& __Name, Expr* __InitialExpr) :
             _Name(__Name), _InitialExpr(__InitialExpr) {}
         ~VarInit(void) {}
-        MyValue codegen(CodeGenerator& Gen) { return MyValue(); }
+        MyValue codegen(Generator& Gen) { return MyValue(); }
         std::string nodeJson();
     };
 
@@ -277,7 +277,7 @@ namespace ast {
         TypeDecl(const std::string& __Alias, VarType* __VarType) :
             _Alias(__Alias), _VarType(__VarType) {}
         ~TypeDecl(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -295,8 +295,8 @@ namespace ast {
             this->_isConst = true;
         }
 
-        virtual llvm::Type* GetLLVMType(CodeGenerator& Gen) = 0;
-        MyValue codegen(CodeGenerator& Gen) { return MyValue(); }
+        virtual llvm::Type* GetLLVMType(Generator& Gen) = 0;
+        MyValue codegen(Generator& Gen) { return MyValue(); }
 
         virtual bool isPointerType(void) = 0;
         virtual bool isArrayType(void) = 0;
@@ -323,7 +323,7 @@ namespace ast {
         BuiltInType(TypeID __Type) : _Type(__Type) {}
         ~BuiltInType(void) {}
 
-        llvm::Type* GetLLVMType(CodeGenerator& Gen);
+        llvm::Type* GetLLVMType(Generator& Gen);
         //Determine class type
         bool isPointerType(void) { return false; }
         bool isArrayType(void) { return false; }
@@ -338,7 +338,7 @@ namespace ast {
 
         DefinedType(const std::string& __Name) : _Name(__Name) {}
         ~DefinedType(void) {}
-        llvm::Type* GetLLVMType(CodeGenerator& Gen);
+        llvm::Type* GetLLVMType(Generator& Gen);
 
         bool isPointerType(void) { return false; }
         bool isArrayType(void) { return false; }
@@ -354,7 +354,7 @@ namespace ast {
         PointerType(VarType* __BaseType) : _BaseType(__BaseType) {}
         ~PointerType(void) {}
 
-        llvm::Type* GetLLVMType(CodeGenerator& Gen);
+        llvm::Type* GetLLVMType(Generator& Gen);
         //Determine class type
         bool isPointerType(void) { return true; }
         bool isArrayType(void) { return false; }
@@ -374,7 +374,7 @@ namespace ast {
         ArrayType(VarType* __BaseType) : _BaseType(__BaseType), _Length(0) {}
         ~ArrayType(void) {}
 
-        llvm::Type* GetLLVMType(CodeGenerator& Gen);
+        llvm::Type* GetLLVMType(Generator& Gen);
 
         bool isPointerType(void) { return false; }
         bool isArrayType(void) { return true; }
@@ -389,10 +389,10 @@ namespace ast {
 
         StructType(FieldDecls* __StructBody) : _StructBody(__StructBody) {}
         ~StructType(void) {}
-        llvm::Type* GetLLVMType(CodeGenerator& Gen);
+        llvm::Type* GetLLVMType(Generator& Gen);
 
-        llvm::Type* GenerateStructTypeHead(CodeGenerator& Gen, const std::string& __Name = "<unnamed>");
-        llvm::Type* GenerateStructTypeBody(CodeGenerator& Gen);
+        llvm::Type* GenerateStructTypeHead(Generator& Gen, const std::string& __Name = "<unnamed>");
+        llvm::Type* GenerateStructTypeBody(Generator& Gen);
         size_t GetElementIndex(const std::string& __MemName);
 
         bool isPointerType(void) { return false; }
@@ -409,7 +409,7 @@ namespace ast {
 
         FieldDecl(VarType* __VarType, MemList* __MemList) :_VarType(__VarType), _MemList(__MemList) {}
         ~FieldDecl(void) {}
-        MyValue codegen(CodeGenerator& Gen) { return MyValue(); }
+        MyValue codegen(Generator& Gen) { return MyValue(); }
         std::string nodeJson();
     };
 
@@ -423,7 +423,7 @@ namespace ast {
         ArgList(void) : _DotsArg(false) {}
         ~ArgList(void) {}
 
-        MyValue codegen(CodeGenerator& Gen) { return MyValue(); }
+        MyValue codegen(Generator& Gen) { return MyValue(); }
         std::string nodeJson();
     };
 
@@ -437,7 +437,7 @@ namespace ast {
             _VarType(__VarType), _Name(__Name) {}
         ~Arg(void) {}
 
-        MyValue codegen(CodeGenerator& Gen) { return MyValue(); }
+        MyValue codegen(Generator& Gen) { return MyValue(); }
         std::string nodeJson();
     };
 
@@ -448,7 +448,7 @@ namespace ast {
 
         Block(Stmts* __Content) :_Content(__Content) {}
         ~Block(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -461,7 +461,7 @@ namespace ast {
 
         IfStmt(Expr* __Condition, Block* __Then, Block* __Else = NULL) : _Condition(__Condition), _Then(__Then), _Else(__Else) {}
         ~IfStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -476,7 +476,7 @@ namespace ast {
         ForStmt(Stmt* __Initial, Expr* __Condition, Expr* __Tail, Block* __LoopBody) :
             _Initial(__Initial), _Condition(__Condition), _Tail(__Tail), _LoopBody(__LoopBody) {}
         ~ForStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -488,7 +488,7 @@ namespace ast {
 
         SwitchStmt(Expr* __Matcher, CaseList* __CaseList) : _Matcher(__Matcher), _CaseList(__CaseList) {}
         ~SwitchStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -500,7 +500,7 @@ namespace ast {
 
         CaseStmt(Expr* __Condition, Stmts* __Content) : _Condition(__Condition), _Content(__Content) {}
         ~CaseStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -509,7 +509,7 @@ namespace ast {
     public:
         ContinueStmt(void) {}
         ~ContinueStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -518,7 +518,7 @@ namespace ast {
     public:
         BreakStmt(void) {}
         ~BreakStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -529,7 +529,7 @@ namespace ast {
         Expr* _RetVal;
         ReturnStmt(Expr* __RetVal = NULL) : _RetVal(__RetVal) {}
         ~ReturnStmt(void) {}
-        MyValue codegen(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -540,10 +540,10 @@ namespace ast {
         ~Expr(void) {}
 
         //Generate the expression(right value)
-        virtual MyValue codegen(CodeGenerator& Gen) = 0;
+        virtual MyValue codegen(Generator& Gen) = 0;
 
         //Generate pointer to the expression(left value)
-        virtual MyValue codegenPtr(CodeGenerator& Gen) = 0;
+        virtual MyValue codegenPtr(Generator& Gen) = 0;
 
         virtual std::string nodeJson() = 0;
     };
@@ -555,8 +555,8 @@ namespace ast {
         Expr* _Index;
         Subscript(Expr* __Array, Expr* __Index) : _Array(__Array), _Index(__Index) {}
         ~Subscript(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -570,8 +570,8 @@ namespace ast {
         SizeOf(VarType* __Arg2) : _Arg1(NULL), _Arg2(__Arg2), _Arg3("") {}
         SizeOf(const std::string& __Arg3) : _Arg1(NULL), _Arg2(NULL), _Arg3(__Arg3) {}
         ~SizeOf(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -585,8 +585,8 @@ namespace ast {
         FunctionCall(const std::string& __FuncName, ExprList* __ArgList, Expr* __StructRef = NULL, Expr* __StructPtr = NULL) :
             _FuncName(__FuncName), _ArgList(__ArgList), _StructRef(__StructRef), _StructPtr(__StructPtr) {}
         ~FunctionCall(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -596,8 +596,8 @@ namespace ast {
         std::string _MemName;
         StructReference(Expr* __Struct, const std::string& __MemName) : _Struct(__Struct), _MemName(__MemName) {}
         ~StructReference(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -607,8 +607,8 @@ namespace ast {
         std::string _MemName;
         StructDereference(Expr* __StructPtr, const std::string& __MemName) : _StructPtr(__StructPtr), _MemName(__MemName) {}
         ~StructDereference(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -617,8 +617,8 @@ namespace ast {
         Expr* _Operand;
         UnaryPlus(Expr* __Operand) : _Operand(__Operand) {}
         ~UnaryPlus(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -627,8 +627,8 @@ namespace ast {
         Expr* _Operand;
         UnaryMinus(Expr* __Operand) : _Operand(__Operand) {}
         ~UnaryMinus(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -638,8 +638,8 @@ namespace ast {
         Expr* _Operand;
         TypeCast(VarType* __VarType, Expr* __Operand) : _VarType(__VarType), _Operand(__Operand) {}
         ~TypeCast(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -648,8 +648,8 @@ namespace ast {
         Expr* _Operand;
         PrefixInc(Expr* __Operand) : _Operand(__Operand) {}
         ~PrefixInc(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -658,8 +658,8 @@ namespace ast {
         Expr* _Operand;
         PostfixInc(Expr* __Operand) : _Operand(__Operand) {}
         ~PostfixInc(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -668,8 +668,8 @@ namespace ast {
         Expr* _Operand;
         PrefixDec(Expr* __Operand) : _Operand(__Operand) {}
         ~PrefixDec(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -678,8 +678,8 @@ namespace ast {
         Expr* _Operand;
         PostfixDec(Expr* __Operand) : _Operand(__Operand) {}
         ~PostfixDec(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -688,8 +688,8 @@ namespace ast {
         Expr* _Operand;
         Indirection(Expr* __Operand) : _Operand(__Operand) {}
         ~Indirection(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -698,8 +698,8 @@ namespace ast {
         Expr* _Operand;
         AddressOf(Expr* __Operand) : _Operand(__Operand) {}
         ~AddressOf(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -708,8 +708,8 @@ namespace ast {
         Expr* _Operand;
         LogicNot(Expr* __Operand) : _Operand(__Operand) {}
         ~LogicNot(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -718,8 +718,8 @@ namespace ast {
         Expr* _Operand;
         BitwiseNot(Expr* __Operand) : _Operand(__Operand) {}
         ~BitwiseNot(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -729,8 +729,8 @@ namespace ast {
         Expr* _RightOp;
         Division(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~Division(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -740,8 +740,8 @@ namespace ast {
         Expr* _RightOp;
         Multiplication(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~Multiplication(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -751,8 +751,8 @@ namespace ast {
         Expr* _RightOp;
         Modulo(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~Modulo(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -762,8 +762,8 @@ namespace ast {
         Expr* _RightOp;
         Addition(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~Addition(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -773,8 +773,8 @@ namespace ast {
         Expr* _RightOp;
         Subtraction(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~Subtraction(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -784,8 +784,8 @@ namespace ast {
         Expr* _RightOp;
         LeftShift(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LeftShift(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -795,8 +795,8 @@ namespace ast {
         Expr* _RightOp;
         RightShift(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~RightShift(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -806,8 +806,8 @@ namespace ast {
         Expr* _RightOp;
         LogicGT(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicGT(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -817,8 +817,8 @@ namespace ast {
         Expr* _RightOp;
         LogicGE(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicGE(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -828,8 +828,8 @@ namespace ast {
         Expr* _RightOp;
         LogicLT(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicLT(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -839,8 +839,8 @@ namespace ast {
         Expr* _RightOp;
         LogicLE(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicLE(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -850,8 +850,8 @@ namespace ast {
         Expr* _RightOp;
         LogicEQ(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicEQ(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -861,8 +861,8 @@ namespace ast {
         Expr* _RightOp;
         LogicNEQ(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicNEQ(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -872,8 +872,8 @@ namespace ast {
         Expr* _RightOp;
         BitwiseAND(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~BitwiseAND(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -883,8 +883,8 @@ namespace ast {
         Expr* _RightOp;
         BitwiseXOR(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~BitwiseXOR(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -894,8 +894,8 @@ namespace ast {
         Expr* _RightOp;
         BitwiseOR(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~BitwiseOR(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -905,8 +905,8 @@ namespace ast {
         Expr* _RightOp;
         LogicAND(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicAND(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -916,8 +916,8 @@ namespace ast {
         Expr* _RightOp;
         LogicOR(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~LogicOR(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -928,8 +928,8 @@ namespace ast {
         Expr* _Else;
         TernaryCondition(Expr* __Condition, Expr* __Then, Expr* __Else) : _Condition(__Condition), _Then(__Then), _Else(__Else) {}
         ~TernaryCondition(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -939,8 +939,8 @@ namespace ast {
         Expr* _RightOp;
         DirectAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~DirectAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -950,8 +950,8 @@ namespace ast {
         Expr* _RightOp;
         DivAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~DivAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -961,8 +961,8 @@ namespace ast {
         Expr* _RightOp;
         MulAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~MulAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -972,8 +972,8 @@ namespace ast {
         Expr* _RightOp;
         ModAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~ModAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -983,8 +983,8 @@ namespace ast {
         Expr* _RightOp;
         AddAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~AddAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -994,8 +994,8 @@ namespace ast {
         Expr* _RightOp;
         SubAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~SubAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1005,8 +1005,8 @@ namespace ast {
         Expr* _RightOp;
         SHLAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~SHLAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
     class SHRAssign : public Expr {
@@ -1015,8 +1015,8 @@ namespace ast {
         Expr* _RightOp;
         SHRAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~SHRAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1026,8 +1026,8 @@ namespace ast {
         Expr* _RightOp;
         BitwiseANDAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~BitwiseANDAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1037,8 +1037,8 @@ namespace ast {
         Expr* _RightOp;
         BitwiseXORAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~BitwiseXORAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1048,8 +1048,8 @@ namespace ast {
         Expr* _RightOp;
         BitwiseORAssign(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~BitwiseORAssign(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1059,8 +1059,8 @@ namespace ast {
         Expr* _RightOp;
         CommaExpr(Expr* __LeftOp, Expr* __RightOp) : _LeftOp(__LeftOp), _RightOp(__RightOp) {}
         ~CommaExpr(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1069,8 +1069,8 @@ namespace ast {
         std::string _Name;
         Variable(const std::string& __Name) : _Name(__Name) {}
         ~Variable(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1090,8 +1090,8 @@ namespace ast {
         Constant(double __Real) :
             _Type(BuiltInType::TypeID::_Double), _Bool(false), _Character('\0'), _Integer(0), _Real(__Real) {}
         ~Constant(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1100,8 +1100,8 @@ namespace ast {
         std::string _Content;
         GlobalString(const std::string& __Content) : Constant(0), _Content(__Content) {}
         ~GlobalString(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
@@ -1109,8 +1109,8 @@ namespace ast {
     public:
         This(void) {}
         ~This(void) {}
-        MyValue codegen(CodeGenerator& Gen);
-        MyValue codegenPtr(CodeGenerator& Gen);
+        MyValue codegen(Generator& Gen);
+        MyValue codegenPtr(Generator& Gen);
         std::string nodeJson();
     };
 
