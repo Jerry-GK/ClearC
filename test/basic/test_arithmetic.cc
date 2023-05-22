@@ -1,6 +1,7 @@
 // ClearC
-// Written in OOP style
+// A Calculator written in OOP style
 
+// lib function declarations
 func printf(ptr<char>, ...) -> int;
 func scanf(ptr<char>, ...) -> int;
 func malloc(long)->ptr<void>;
@@ -8,14 +9,17 @@ func free(ptr<void>) -> void;
 func strlen(ptr<const char>) -> int;
 func strcpy(ptr<char> dest, ptr<const char> src)->ptr<char>;
 
-// Declaration
+// Type(Class) declaration
 typedef Calculator struct {
+    // private member variable
     ptr<char> expr;
 };
 
+// public methods
 func Calculator : Init() -> void;
 func Calculator : ReadExpr(const ptr<const char> expr) -> void;
 func Calculator : Calc() -> int;
+// private methods
 func Calculator : getNum(ptr<ptr<const char> > p) -> int;
 func Calculator : getTerm(ptr<ptr<const char> > p) -> int;
 

@@ -17,3 +17,5 @@
 [23-5-13] : IR optimization and command parser.
 
 [23-5-13] : Code refactor. Version 1.0 released.
+
+[23-5-22] : Add public / private constraint for member functions / variables of struct.

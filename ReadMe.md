@@ -123,6 +123,8 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
        class is not a critical word, which is replaced by  `typedef A struct {Fileds.};`
 
+   - Member variable in struct is public only if it starts with capital letters.
+
    - **`union` and `enum` are temporarily abandoned in ClearC.**
 
    
@@ -295,7 +297,7 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
       We want to make the OOP style like golang, but a little different.
 
-         `func BaseType : funcname(args list) -> return type {funcbody}`    
+     `func BaseType : funcname(args list) -> return type {funcbody}`    
 
        ```c
         func Student : SetScore(float score) -> void {
@@ -319,24 +321,21 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
         int sid = ps->GetId();
        ```
 
-         - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
-         
-         - The basetype must be a struct type defined by programmers.
-         
-         - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
-         
-         - Call a member function of other types(structs) will raise semantic error.
-         
-         - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
-         
-         - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
-         
-         - There are **private/public constraint** for members variables and functions for structs. 
-         
-           **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
+     - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
 
+     - The basetype must be a struct type defined by programmers.
 
-     ​      
+     - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+
+     - Call a member function of other types(structs) will raise semantic error.
+
+     - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+
+     - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
+
+     - There are **private/public constraint** for members variables and functions for structs. 
+
+       **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
 
 12. Supported operatiors
 
@@ -419,7 +418,7 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 ## Compile Procedure
 
-source code -> tokens -> ast -> IR -> object file -> executable file
+source code -> tokens -> ast -> IR code -> object file -> executable file
 
 ## Environment
 
@@ -457,6 +456,111 @@ The root also has some test script for linux / macos.
 `./redemo.sh` is to recompile project and  use clearc to compile, link and run ./test/demo/demo.cc
 
 `./retest_basic.sh` is recompile project, test all cases in ./test/basic.
+
+## Sample Code
+
+This is a sample code of ClearC, which implements a simple calculator.
+
+```c
+// ClearC
+// A Calculator written in OOP style
+
+// lib function declarations
+func printf(ptr<char>, ...) -> int;
+func scanf(ptr<char>, ...) -> int;
+func malloc(long)->ptr<void>;
+func free(ptr<void>) -> void;
+func strlen(ptr<const char>) -> int;
+func strcpy(ptr<char> dest, ptr<const char> src)->ptr<char>;
+
+// Type(Class) declaration
+typedef Calculator struct {
+    // private member variable
+    ptr<char> expr;
+};
+
+// public methods
+func Calculator : Init() -> void;
+func Calculator : ReadExpr(const ptr<const char> expr) -> void;
+func Calculator : Calc() -> int;
+// private methods
+func Calculator : getNum(ptr<ptr<const char> > p) -> int;
+func Calculator : getTerm(ptr<ptr<const char> > p) -> int;
+
+// main
+func main() -> int {
+    Calculator c;
+    c.Init();
+
+    array<char, 100> expr;
+    scanf("%s", expr);
+    c.ReadExpr(expr);
+    int result = c.Calc();
+
+    printf("%d\n", result);
+    return 0;
+}
+
+// Calculator implementation 
+func Calculator : Init() -> void {
+    this->expr = null;
+    return;
+}
+
+func Calculator : ReadExpr(const ptr<const char> expr) -> void {
+    //deep copy
+    if this->expr != null {
+        free(this->expr);
+    }
+    this->expr = typecast(malloc(sizeof(char) * (strlen(expr) + 1)), ptr<char>);
+    strcpy(this->expr, expr);
+    return;
+}
+
+func Calculator : Calc() -> int {
+    ptr<const char> p = this->expr;
+    int left = this->getTerm(addr(p));
+    for dptr(p) != '\0' && dptr(p) != ')' {
+        char op = dptr(p);
+        p = p + sizeof(char);
+        int right = this->getTerm(addr(p));
+        if op == '+' {
+            left += right;
+        }
+        else {
+            left -= right;
+        }
+    }
+    return left;
+}
+
+func Calculator : getNum(ptr<ptr<const char> > p) -> int {
+    int num = 0;
+    for dptr(dptr(p)) >= '0' && dptr(dptr(p)) <= '9' {
+        num = num * 10 + (dptr(dptr(p)) - '0');
+        dptr(p) = dptr(p) + sizeof(char);
+    }
+    return num;
+}
+
+func Calculator : getTerm(ptr<ptr<const char> > p) -> int {
+    int left = this->getNum(p);
+    for dptr(dptr(p)) == '*' || dptr(dptr(p)) == '/' {
+        char op = dptr(dptr(p));
+        dptr(p) = dptr(p) + sizeof(char);
+        int right = this->getNum(p);
+        if op == '*' {
+            left *= right;
+        }
+        else {
+            left /= right;
+        }
+    }
+    return left;
+}
+```
+
+
 
 ## References
 
