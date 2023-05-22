@@ -293,45 +293,50 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 11. OOP (Encapsulation)
 
-        We want to make the OOP style like golang, but a little different.
+      We want to make the OOP style like golang, but a little different.
 
-       `func BaseType : funcname(args list) -> return type {funcbody}`    
+         `func BaseType : funcname(args list) -> return type {funcbody}`    
 
-     ```c
-      func Student : SetScore(float score) -> void {
-      	this->score = score; 
-      }
-      //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
-      	//this->name = name;
-      //}
-      
-      func Student : GetId() -> int {
-      	return this->id;
-      }
-      //func GetId(const ptr<Student> this) -> int {
-      	//return this->id;
-      //}
-      
-      Student s;
-      s.SetScore(95);
-      
-      ptr<Student> ps = addr(s);
-      int sid = ps->GetId();
-     ```
+       ```c
+        func Student : SetScore(float score) -> void {
+        	this->score = score; 
+        }
+        //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+        	//this->name = name;
+        //}
+        
+        func Student : GetId() -> int {
+        	return this->id;
+        }
+        //func GetId(const ptr<Student> this) -> int {
+        	//return this->id;
+        //}
+        
+        Student s;
+        s.SetScore(95);
+        
+        ptr<Student> ps = addr(s);
+        int sid = ps->GetId();
+       ```
 
-       - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+         - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+         
+         - The basetype must be a struct type defined by programmers.
+         
+         - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+         
+         - Call a member function of other types(structs) will raise semantic error.
+         
+         - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+         
+         - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
+         
+         - There are **private/public constraint** for members variables and functions for structs. 
+         
+           **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
 
-       - The basetype must be a struct type defined by programmers.
 
-       - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
-
-       - Call a member function of other types(structs) will raise semantic error.
-
-       - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
-
-       - Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.
-
-           
+     ​      
 
 12. Supported operatiors
 
@@ -410,9 +415,7 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 7. **Member functions of different base types can NOT have the same name.** This is bad for encapsulation. 
 
-    **There are also NO private/public constraint for members variables or functions for structs.**
-
-
+    
 
 ## Compile Procedure
 

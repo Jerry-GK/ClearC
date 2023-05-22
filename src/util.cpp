@@ -1,5 +1,9 @@
 #include "../include/util.h"
 
+bool IsCapital(char c) {
+    return 'A' <= c && c <= 'Z';
+}
+
 void PrintMsg(const std::string& msg) {
     std::cout << msg << std::endl;
 }

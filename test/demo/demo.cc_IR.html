@@ -2,7 +2,7 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-%structPoint = type { i32 }
+%structPoint = type { i32, i32 }
 
 @0 = private unnamed_addr constant [16 x i8] c"Point's x = %d\0A\00", align 1
 @1 = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
@@ -39,7 +39,8 @@ entry:
 define i32 @main() local_unnamed_addr #0 {
 entry:
   %0 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([4 x i8], [4 x i8]* @1, i64 0, i64 0), i32 37)
-  %1 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i32 37) #3
+  %1 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([4 x i8], [4 x i8]* @1, i64 0, i64 0), i32 1)
+  %2 = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i32 37) #3
   ret i32 0
 }
 

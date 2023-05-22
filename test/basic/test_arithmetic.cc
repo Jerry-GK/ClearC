@@ -12,6 +12,8 @@ func strcpy(ptr<char> dest, ptr<const char> src)->ptr<char>;
 typedef Calculator struct {
     ptr<char> expr;
 };
+
+func Calculator : Init() -> void;
 func Calculator : ReadExpr(const ptr<const char> expr) -> void;
 func Calculator : Calc() -> int;
 func Calculator : getNum(ptr<ptr<const char> > p) -> int;
@@ -20,7 +22,7 @@ func Calculator : getTerm(ptr<ptr<const char> > p) -> int;
 // main
 func main() -> int {
     Calculator c;
-    c.expr = null;
+    c.Init();
 
     array<char, 100> expr;
     scanf("%s", expr);
@@ -32,6 +34,11 @@ func main() -> int {
 }
 
 // Calculator implementation 
+func Calculator : Init() -> void {
+    this->expr = null;
+    return;
+}
+
 func Calculator : ReadExpr(const ptr<const char> expr) -> void {
     //deep copy
     if this->expr != null {

@@ -743,6 +743,16 @@ namespace ast {
             }
         }
 
+        //check private / public
+        if (!MyFunc->IsPublic()) {
+            auto MyFuncLLVMType = Gen.FindType(MyFunc->TypeName)->LLVMType;
+            auto curMyBaseType = Gen.FindType(curMyFunc->TypeName);
+            if (!curMyBaseType || curMyBaseType->LLVMType != MyFuncLLVMType) {
+                throw std::logic_error("Cannot call private member function \"" + this->_FuncName + "\" from outside its class");
+                return MyValue();
+            }
+        }
+
         size_t Index = 0;
         auto ArgIter = Func->arg_begin();
         if (HasBaseType) {
@@ -805,6 +815,17 @@ namespace ast {
                 throw std::logic_error("The struct doesn't have a member whose name is \"" + this->_MemName + "\"");
                 return MyValue();
             }
+
+            //check private / public
+            auto curMyFunc = Gen.GetCurFunction();
+            auto curMyBaseType = Gen.FindType(curMyFunc->TypeName);
+            auto exprLLVMType = StructPtr.Value->getType()->getNonOpaquePointerElementType();
+            bool IsPublic = IsCapital(this->_MemName[0]);
+            if (!IsPublic && (!curMyBaseType || curMyBaseType->LLVMType != exprLLVMType)) {
+                throw std::logic_error("Cannot access private member variable \"" + this->_MemName + "\" from outside its class");
+                return MyValue();
+            }
+
             std::vector<llvm::Value*> Indices;
             Indices.push_back(GlobalBuilder.getInt32(0));
             Indices.push_back(GlobalBuilder.getInt32(MemIndex));
@@ -841,6 +862,15 @@ namespace ast {
                 return MyValue();
             }
 
+            //check private / public
+            auto curMyFunc = Gen.GetCurFunction();
+            auto curMyBaseType = Gen.FindType(curMyFunc->TypeName);
+            auto exprLLVMType = StructPtr.Value->getType()->getNonOpaquePointerElementType();
+            bool IsPublic = IsCapital(this->_MemName[0]);
+            if (!IsPublic && (!curMyBaseType || curMyBaseType->LLVMType != exprLLVMType)) {
+                throw std::logic_error("Cannot access private member variable \"" + this->_MemName + "\" from outside its class");
+                return MyValue();
+            }
             std::vector<llvm::Value*> Indices;
             Indices.push_back(GlobalBuilder.getInt32(0));
             Indices.push_back(GlobalBuilder.getInt32(MemIndex));

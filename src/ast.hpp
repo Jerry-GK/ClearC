@@ -21,6 +21,8 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Verifier.h>
 
+#include "../include/util.h"
+
 class Generator;
 
 namespace ast {
@@ -1122,6 +1124,11 @@ namespace ast {
             Args(_a),
             RetType(_r),
             TypeName(_t) {}
+
+        bool IsPublic() {
+            std::string FuncName = LLVMFunc->getName().str();
+            return TypeName.empty() || IsCapital(FuncName[0]);
+        }
 
         llvm::Function* LLVMFunc;
         ArgList* Args;
