@@ -22,7 +22,7 @@ llvm::TypeSize Generator::GetTypeSize(llvm::Type* Type) {
 }
 
 void Generator::PushSymbolTable(void) {
-    this->SymbolTableStack.push_back(new SymbolTable);
+    this->SymbolTableStack.push_back(new SymbolStackFrame());
 }
 
 void Generator::PopSymbolTable(void) {
@@ -33,9 +33,10 @@ void Generator::PopSymbolTable(void) {
 
 ast::MyFunction* Generator::FindFunction(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
-    for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
-        auto mapIter = (*TableIter)->find(Name);
-        if (mapIter != (*TableIter)->end())
+    for (auto FrameIter = this->SymbolTableStack.end() - 1; FrameIter >= this->SymbolTableStack.begin(); FrameIter--) {
+        auto FuncTable = (*FrameIter)->FuncSymbolTable;
+        auto mapIter = FuncTable->find(Name);
+        if (mapIter != FuncTable->end())
             return mapIter->second.GetFunction();
     }
     return NULL;
@@ -43,23 +44,25 @@ ast::MyFunction* Generator::FindFunction(std::string Name) {
 
 AddFunctionReseult Generator::AddFunction(std::string Name, ast::MyFunction* Function) {
     if (this->SymbolTableStack.size() == 0) return ADDFUNC_ERROR;
-    auto TopTable = this->SymbolTableStack.back();
-    auto mapIter = TopTable->find(Name);
-    if (mapIter != TopTable->end()) {
+    auto TopFrame = this->SymbolTableStack.back();
+    auto FuncTable = TopFrame->FuncSymbolTable;
+    auto mapIter = FuncTable->find(Name);
+    if (mapIter != FuncTable->end()) {
         if (mapIter->second.GetFunction())
             return ADDFUNC_DECLARED;
         else
             return ADDFUNC_NAMECONFLICT;
     }
-    TopTable->insert({ Name, Symbol(Function) });
+    FuncTable->insert({ Name, Symbol(Function) });
     return ADDFUNC_SUCCESS;
 }
 
 ast::MyType* Generator::FindType(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
-    for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
-        auto mapIter = (*TableIter)->find(Name);
-        if (mapIter != (*TableIter)->end())
+    for (auto FrameIter = this->SymbolTableStack.end() - 1; FrameIter >= this->SymbolTableStack.begin(); FrameIter--) {
+        auto TypeTable = (*FrameIter)->TypeSymbolTable;
+        auto mapIter = TypeTable->find(Name);
+        if (mapIter != TypeTable->end())
             return mapIter->second.GetType();
     }
     return NULL;
@@ -67,19 +70,21 @@ ast::MyType* Generator::FindType(std::string Name) {
 
 bool Generator::AddType(std::string Name, ast::MyType* Type) {
     if (this->SymbolTableStack.size() == 0) return false;
-    auto TopTable = this->SymbolTableStack.back();
-    auto mapIter = TopTable->find(Name);
-    if (mapIter != TopTable->end())
+    auto TopFrame = this->SymbolTableStack.back();
+    auto TypeTable = TopFrame->TypeSymbolTable;
+    auto mapIter = TypeTable->find(Name);
+    if (mapIter != TypeTable->end())
         return false;
-    TopTable->insert({ Name, Symbol(Type) });
+    TypeTable->insert({ Name, Symbol(Type) });
     return true;
 }
 
 ast::MyValue* Generator::FindVariable(std::string Name) {
     if (this->SymbolTableStack.size() == 0) return NULL;
-    for (auto TableIter = this->SymbolTableStack.end() - 1; TableIter >= this->SymbolTableStack.begin(); TableIter--) {
-        auto mapIter = (*TableIter)->find(Name);
-        if (mapIter != (*TableIter)->end())
+    for (auto FrameIter = this->SymbolTableStack.end() - 1; FrameIter >= this->SymbolTableStack.begin(); FrameIter--) {
+        auto VarTable = (*FrameIter)->VarSymbolTable;
+        auto mapIter = VarTable->find(Name);
+        if (mapIter != VarTable->end())
             return mapIter->second.GetVariable();
     }
     return NULL;
@@ -87,11 +92,12 @@ ast::MyValue* Generator::FindVariable(std::string Name) {
 
 bool Generator::AddVariable(std::string Name, ast::MyValue* Variable) {
     if (this->SymbolTableStack.size() == 0) return false;
-    auto TopTable = this->SymbolTableStack.back();
-    auto mapIter = TopTable->find(Name);
-    if (mapIter != TopTable->end())
+    auto TopFrame = this->SymbolTableStack.back();
+    auto VarTable = TopFrame->VarSymbolTable;
+    auto mapIter = VarTable->find(Name);
+    if (mapIter != VarTable->end())
         return false;
-    TopTable->insert({ Name, Symbol(Variable) });
+    VarTable->insert({ Name, Symbol(Variable) });
     return true;
 }
 

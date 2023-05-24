@@ -13,6 +13,11 @@ typedef Student struct {
     int x;
 };
 
+func Point : Point() -> void {
+    this->x = 0;
+    return;
+}
+
 func Point : SetX(int x) -> void {
     this->x = x;
     return;
@@ -46,6 +51,12 @@ func main() -> int {
     printf("%d\n", x);
     printf("%d\n", Y);
     pp->PrintX();
+
+    //test the same name of func, type and var
+    Point Point;
+    Point.Point();
+    printf("%d\n", Point.GetX());
+    printf("%d\n", Point.Y);
 
     return 0;
 }

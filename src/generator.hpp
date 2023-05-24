@@ -116,8 +116,7 @@ public:
     //Output object code(to file)
     void GenObjectCode(std::string FileName);
 
-
-private:
+public:
     class Symbol {
     public:
         Symbol(void) : Val(NULL), Type(UNDEFINED) {}
@@ -140,13 +139,31 @@ private:
     using StructTable = std::map<llvm::StructType*, ast::StructType*>;
     using SymbolTable = std::map<std::string, Symbol>;
 
+    class SymbolStackFrame {
+    public:
+        SymbolStackFrame(void) {
+            FuncSymbolTable = new SymbolTable();
+            TypeSymbolTable = new SymbolTable();
+            VarSymbolTable = new SymbolTable();
+        }
+        ~SymbolStackFrame(void) {
+            delete FuncSymbolTable;
+            delete TypeSymbolTable;
+            delete VarSymbolTable;
+        }
+
+        SymbolTable* FuncSymbolTable;
+        SymbolTable* TypeSymbolTable;
+        SymbolTable* VarSymbolTable;
+    };
+
 private:
     llvm::DataLayout* DataLayout;								//Data layout
     ast::MyFunction* CurFunction;						        //Current function
     StructTable* StructTyTable;						            //Struct table
-    std::vector<SymbolTable*> SymbolTableStack;			        //Symbol table
+    std::vector<SymbolStackFrame*> SymbolTableStack;			//Symbol table
     std::vector<llvm::BasicBlock*> ContinueBlockStack;	        //Blocks for "continue" statement
     std::vector<llvm::BasicBlock*> BreakBlockStack;		        //Blocks for "break" statement
     llvm::BasicBlock* EmptyBB;                                  //Empty block for global variable declaration
-    llvm::Function* EmptyFunc;                                   //Empty function for EmptyBB
+    llvm::Function* EmptyFunc;                                  //Empty function for EmptyBB
 };

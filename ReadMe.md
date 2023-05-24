@@ -8,7 +8,7 @@
 
 ClearC has a **clearer grammar**(especially on pointers), relatively complete **const** constraints, and  functions in **OOP** style.
 
-**Current Version: 1.0**
+**Current Version: 1.1**
 
 
 
@@ -275,24 +275,23 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
 10. naming
 
-       For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+    For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
 
-       In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. **Functions, types and variables can NOT have the same name with each other**, otherwise will raise **naming conflict error**.
+    In Version1.1, we maintain thress symbol tables for function, type and varaiable. So symbols of different kinds can have the same name in the same "symbol frame".
 
        ```c
-    //naming conflict for identifier "Student"
-    int Student; //variable
+    //a legal program after Version1.1
     typedef Student struct{}; //type
-    func Student() -> void; //function
+    func Student(Student Student) -> void; //function
     
     func f() -> void{
-      int Student; //this will NOT cause naming conflict
-      return;
+    	Student Student; //var
+      Student(Student);
     }
        ```
-
+    
       
-
+    
 11. OOP (Encapsulation)
 
       We want to make the OOP style like golang, but a little different.

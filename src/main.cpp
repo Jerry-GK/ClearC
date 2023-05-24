@@ -9,10 +9,11 @@ using namespace std;
 
 extern int yyparse();
 extern ast::Program* Root;
+string VersionStr = "1.1";
 
 //program entry
 int main(int argc, const char* argv[]) {
-    PrintMsg("[ClearC --Version1.0]");
+    PrintMsg("[ClearC --Version" + VersionStr + "]");
 
     //Parse command
     CommandParser* cp = new CommandParser();

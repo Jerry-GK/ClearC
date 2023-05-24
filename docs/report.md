@@ -286,106 +286,105 @@
 
 10. naming
 
-       For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+    For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
 
-       In ClearC, to make naming more clear and avoid ambiguity, we require that in the same namespace(block with the same symbol table), identifiers must be distinct. **Functions, types and variables can NOT have the same name with each other**, otherwise will raise **naming conflict error**.
+    In Version1.1, we maintain thress symbol tables for function, type and varaiable. So symbols of different kinds can have the same name in the same "symbol frame".
 
        ```c
-    //naming conflict for identifier "Student"
-    int Student; //variable
+    //a legal program after Version1.1
     typedef Student struct{}; //type
-    func Student() -> void; //function
+    func Student(Student Student) -> void; //function
     
     func f() -> void{
-      int Student; //this will NOT cause naming conflict
-      return;
-    }  
+    	Student Student; //var
+      Student(Student);
+    }
        ```
 
 11. OOP (Encapsulation)
 
-     We want to make the OOP style like golang, but a little different.
+      We want to make the OOP style like golang, but a little different.
 
-        `func BaseType : funcname(args list) -> return type {funcbody}`    
+         `func BaseType : funcname(args list) -> return type {funcbody}`    
 
-      ```c
-      func Student : SetScore(float score) -> void {
-      	this->score = score; 
-      }
-      //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
-      	//this->name = name;
-      //}
-      
-      func Student : GetId() -> int {
-      	return this->id;
-      }
-      //func GetId(const ptr<Student> this) -> int {
-      	//return this->id;
-      //}
-      
-      Student s;
-      s.SetScore(95);
-      
-      ptr<Student> ps = addr(s);
-      int sid = ps->GetId();
-      ```
+       ```c
+       func Student : SetScore(float score) -> void {
+       	this->score = score; 
+       }
+       //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+       	//this->name = name;
+       //}
+       
+       func Student : GetId() -> int {
+       	return this->id;
+       }
+       //func GetId(const ptr<Student> this) -> int {
+       	//return this->id;
+       //}
+       
+       Student s;
+       s.SetScore(95);
+       
+       ptr<Student> ps = addr(s);
+       int sid = ps->GetId();
+       ```
 
-        - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+         - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+         
+         - The basetype must be a struct type defined by programmers.
+         
+         - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+         
+         - Call a member function of other types(structs) will raise semantic error.
+         
+         - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+         
+         - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
 
-        - The basetype must be a struct type defined by programmers.
+       - There are **private/public constraint** for members variables and functions for structs. 
 
-        - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
-
-        - Call a member function of other types(structs) will raise semantic error.
-
-        - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
-
-        - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
-
-      - There are **private/public constraint** for members variables and functions for structs. 
-
-         **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
+          **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
 
 12. Supported operatiors
 
-     ClearC supports almost all operators in C.
+      ClearC supports almost all operators in C.
 
-     ```c
-    "<<="													//left shift assign
-    "<<"													//left shift
-    ">>="													//right shift assign
-    ">>"													//right shift
-    "=="													//equal
-    ">="													//greater or equal than
-    ">"														//greater than
-    "<="													//less or equal than
-    "<"														//less than
-    "!="													//not equal
-    "!"														//not
-    "="														//direct assign
-    "&&"													//and
-    "&="													//binary and assign
-    "&"														//binary and
-    "||"													//or
-    "|="													//binary or assign
-    "|"														//binary or
-    "^="													//binary xor assign
-    "^"														//binary xor
-    "~"														//binary not
-    "++"													//postfix/prefix increment
-    "+="													//add assign
-    "+"														//add
-    "--"													//postfix/prefix decrement
-    "-="													//substract assign
-    "-"														//sunstract
-    "*="													//multiply assign
-    "*"														//multiply
-    "/="													//divide assign
-    "/"														//divide
-    "%="													//modulo assign
-    "%"														//modulo
-    "?:"													//ternary operator
-     ```
+      ```c
+     "<<="													//left shift assign
+     "<<"													//left shift
+     ">>="													//right shift assign
+     ">>"													//right shift
+     "=="													//equal
+     ">="													//greater or equal than
+     ">"														//greater than
+     "<="													//less or equal than
+     "<"														//less than
+     "!="													//not equal
+     "!"														//not
+     "="														//direct assign
+     "&&"													//and
+     "&="													//binary and assign
+     "&"														//binary and
+     "||"													//or
+     "|="													//binary or assign
+     "|"														//binary or
+     "^="													//binary xor assign
+     "^"														//binary xor
+     "~"														//binary not
+     "++"													//postfix/prefix increment
+     "+="													//add assign
+     "+"														//add
+     "--"													//postfix/prefix decrement
+     "-="													//substract assign
+     "-"														//sunstract
+     "*="													//multiply assign
+     "*"														//multiply
+     "/="													//divide assign
+     "/"														//divide
+     "%="													//modulo assign
+     "%"														//modulo
+     "?:"													//ternary operator
+      ```
 
 
 ### 1.3 语言局限性
