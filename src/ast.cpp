@@ -215,6 +215,15 @@ namespace ast {
     //Variable declaration
     MyValue VarDecl::codegen(Generator& Gen) {
         //Get the llvm type
+        if (this->_VarType->_VarTy == VARTYPE_POINTER && ((PointerType*)this->_VarType)->_BaseType->_VarTy == VARTYPE_AUTO) {
+            throw std::logic_error("Cannot declare a a pointer with auto base type.");
+            return MyValue();
+        }
+        if (this->_VarType->_VarTy == VARTYPE_ARRAY && ((PointerType*)this->_VarType)->_BaseType->_VarTy == VARTYPE_AUTO) {
+            throw std::logic_error("Cannot declare a an array with auto base type.");
+            return MyValue();
+        }
+
         llvm::Type* VarType = this->_VarType->GetLLVMType(Gen);
         if (this->_VarType->_VarTy != VARTYPE_AUTO && VarType == NULL) {
             throw std::logic_error("Define variable with unknown type");
@@ -432,13 +441,17 @@ namespace ast {
     }
     llvm::Type* StructType::GenerateStructTypeBody(Generator& Gen) {
         std::vector<llvm::Type*> Members;
-        for (auto FDecl : *(this->_StructBody))
+        for (auto FDecl : *(this->_StructBody)) {
+            if (FDecl->_VarType->_VarTy == VARTYPE_AUTO) {
+                throw std::logic_error("The member type of struct cannot be auto");
+                return NULL;
+            }
             if (FDecl->_VarType->GetLLVMType(Gen)->isVoidTy()) {
                 throw std::logic_error("The member type of struct cannot be void");
                 return NULL;
             }
-            else
-                Members.insert(Members.end(), FDecl->_MemList->size(), FDecl->_VarType->GetLLVMType(Gen));
+            Members.insert(Members.end(), FDecl->_MemList->size(), FDecl->_VarType->GetLLVMType(Gen));
+        }
         ((llvm::StructType*)this->_LLVMType)->setBody(Members);
         return this->_LLVMType;
     }
@@ -683,7 +696,13 @@ namespace ast {
         if (this->_Arg1)//Expr
             return MyValue(GlobalBuilder.getInt64(Gen.GetTypeSize(this->_Arg1->codegen(Gen).Value->getType())));
         else if (this->_Arg2)//Type
+        {
+            if (this->_Arg2->_VarTy == VARTYPE_AUTO) {
+                throw std::logic_error("Cannot do sizeof on auto type");
+                return MyValue();
+            }
             return MyValue(GlobalBuilder.getInt64(Gen.GetTypeSize(this->_Arg2->GetLLVMType(Gen))));
+        }
         else {//identifier
             llvm::Type* Type = Gen.FindType(this->_Arg3)->LLVMType;
             if (Type) {
@@ -940,6 +959,10 @@ namespace ast {
     //typecast
     MyValue TypeCast::codegen(Generator& Gen) {
         MyValue MyVal = this->_Operand->codegen(Gen);
+        if (this->_VarType->_VarTy == VARTYPE_AUTO) {
+            throw std::logic_error("Cannot typecast to auto type");
+            return MyValue();
+        }
         if (MyVal.IsInnerConstPointer
             && !(this->_VarType->_VarTy == VARTYPE_POINTER && ((PointerType*)(this->_VarType))->isInnerConst())) {
             throw std::logic_error("Cannot type cast an inner-const pointer to a non-inner-const pointer");

@@ -249,12 +249,14 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
         auto x; //illegal
         ```
 
-    - `const` (outer-const) will not be inherited by auto (just like C).
+    - `const` (outer-const) will not be inherited by auto (just like C). You need to use `const auto` to do that.
 
         ```c
         const int a = 1;
         auto b = a; //b is not a const variable
+        const auto c = a; //c is a const variable
         b = 2; //legal
+        c = 2; //illegal
         ```
 
     - Inner-const will be inherited by auto
@@ -266,12 +268,28 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
         dptr(pa) = 2;//illegal
         ```
 
-    - `auto` type cannot be the function argument type or return type
+    - `auto` can NOT be used at:
 
-        ```c
-        func f(auto) -> int {} //illegal
-        func f() -> auto {} //illegal
-        ```
+        - function argument type or return type
+
+            ```c
+            func f(auto) -> int {} //illegal
+            func f() -> auto {} //illegal
+            ```
+
+        - pointer base type or array type
+
+            ```c
+            int a = 1;
+            ptr<auto> p = addr(a); //illegal, p cannot be viewed as ptr<int>
+            array<auto, 10> arr; //illegal
+            ```
+
+        - field declaration in struct: auto cannot be member variable type.
+
+        - sizeof: `sizeof(auto)` is illegal.
+
+        - typecast: cannot cast a value to auto type.
 
     - Initialized by array is not recommended (but available). 
 

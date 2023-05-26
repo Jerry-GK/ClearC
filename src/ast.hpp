@@ -377,9 +377,6 @@ namespace ast {
         ArrayType(VarType* __BaseType, size_t __Length) : _BaseType(__BaseType), _Length(__Length) {
             _VarTy = VARTYPE_ARRAY;
         }
-        ArrayType(VarType* __BaseType) : _BaseType(__BaseType), _Length(0) {
-            _VarTy = VARTYPE_ARRAY;
-        }
         ~ArrayType(void) {}
 
         llvm::Type* GetLLVMType(Generator& Gen);

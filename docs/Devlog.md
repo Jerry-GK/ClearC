@@ -23,3 +23,5 @@
 [23-5-24] : Different symbol tables for function, type and variable. Version 1.1 released.
 
 [23-5-26] : Support `auto`, Version 1.2 released.
+
+[23-5-27] : Safe auto.

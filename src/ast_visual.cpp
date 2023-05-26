@@ -88,8 +88,9 @@ string FuncDecl::nodeJson() {
 string ArgList::nodeJson() {
     if (_DotsArg == true)
         return getJson("..", getJson("True"));
-    else if (_DotsArg == false)
+    else
         return getJson("..", getJson("False"));
+    return "";
 }
 
 string FuncBody::nodeJson() {
@@ -650,6 +651,7 @@ string Constant::nodeJson() {
     default:
         break;
     }
+    return "";
 }
 
 string BuiltInType::nodeJson() {
