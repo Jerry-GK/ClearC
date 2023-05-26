@@ -118,13 +118,14 @@
      FLOAT = 334,
      DOUBLE = 335,
      VOID = 336,
-     INTEGER = 337,
-     IDENTIFIER = 338,
-     REAL = 339,
-     CHARACTER = 340,
-     STRING = 341,
-     FUNC_CALL_ARG_LIST = 342,
-     GEQ = 343
+     AUTO = 337,
+     INTEGER = 338,
+     IDENTIFIER = 339,
+     REAL = 340,
+     CHARACTER = 341,
+     STRING = 342,
+     FUNC_CALL_ARG_LIST = 343,
+     GEQ = 344
    };
 #endif
 /* Tokens.  */
@@ -207,13 +208,14 @@
 #define FLOAT 334
 #define DOUBLE 335
 #define VOID 336
-#define INTEGER 337
-#define IDENTIFIER 338
-#define REAL 339
-#define CHARACTER 340
-#define STRING 341
-#define FUNC_CALL_ARG_LIST 342
-#define GEQ 343
+#define AUTO 337
+#define INTEGER 338
+#define IDENTIFIER 339
+#define REAL 340
+#define CHARACTER 341
+#define STRING 342
+#define FUNC_CALL_ARG_LIST 343
+#define GEQ 344
 
 
 
@@ -259,7 +261,7 @@ typedef union YYSTYPE
 	ast::ExprList* exprList;
 }
 /* Line 1529 of yacc.c.  */
-#line 263 "parser.hpp"
+#line 265 "parser.hpp"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

@@ -31,7 +31,7 @@ func main() -> int {
     array<char, 100> expr;
     scanf("%s", expr);
     c.ReadExpr(expr);
-    int result = c.Calc();
+    auto result = c.Calc();
 
     printf("%d\n", result);
     return 0;
@@ -45,7 +45,7 @@ func Calculator : Init() -> void {
 
 func Calculator : ReadExpr(const ptr<const char> expr) -> void {
     //deep copy
-    if this->expr != null {
+    if this->expr != null{
         free(this->expr);
     }
     this->expr = typecast(malloc(sizeof(char) * (strlen(expr) + 1)), ptr<char>);

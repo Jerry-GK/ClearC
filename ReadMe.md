@@ -6,9 +6,9 @@
 
 **A Compiler for ClearC, a Simplified but More Clear C Language with some Go Features.**
 
-ClearC has a **clearer grammar**(especially on pointers), relatively complete **const** constraints, and  functions in **OOP** style.
+ClearC has a **clearer grammar**(especially on pointers), relatively complete **const** constraints, **auto**, and  functions in **OOP** style.
 
-**Current Version: 1.1**
+**Current Version: 1.2**
 
 
 
@@ -231,167 +231,216 @@ ClearC has a **clearer grammar**(especially on pointers), relatively complete **
 
    
 
-9. **Control Grammar**
+9. **auto** (Version1.2)
 
-   In `if, for, switch`, **condition does NOT need to be in `()`, but the body code must be in `{}`**
+    After Version1.2, ClearC supports `auto` for variable declaration.
 
-   Declaration is allowed in for's initial statement (like c++).
+    ```c
+    auto x = 1;
+    auto y = x;
+    auto s = stu; //stu is a Student struct type
+    ```
 
-   We use `for condition {}` to replace `while condition {}`.  `for{}` is unconditional loop.
+     There are some important points:
 
-   So `while` is not a critical word in ClearC.
+    - `auto` must be used for variable declaration with initialize expresion. Cannot declare an auto type variable separately.
 
-   **`do{} while`  is abandoned in ClearC.**
+        ```c
+        auto x; //illegal
+        ```
 
-   ```c
-   //legal
-   for int i = 0; i < n; i++ {
-   	sum += i;
-   }
-   
-   //illegal
-   for int i = 0; i < n; i++
-   	sum += i;
-   
-   //illegal
-   for (int i = 0; i < n; i++) {
-   	sum += i;
-   }
-   
-   //legal
-   for i < 10 {
-     sum += i;
-     i++;
-   }
-   
-   //legal
-   for {
-     if i > 5{
-       break;
-     }
-     i++;
-   }
-   ```
+    - `const` (outer-const) will not be inherited by auto (just like C).
 
-10. naming
+        ```c
+        const int a = 1;
+        auto b = a; //b is not a const variable
+        b = 2; //legal
+        ```
 
-    For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+    - Inner-const will be inherited by auto
 
-    In Version1.1, we maintain thress symbol tables for function, type and varaiable. So symbols of different kinds can have the same name in the same "symbol frame".
+        ```c
+        const int a = 1;
+        ptr<const int> p = addr(a);
+        auto pa = p; //pa is an inner-const pointer
+        dptr(pa) = 2;//illegal
+        ```
 
-       ```c
-    //a legal program after Version1.1
+    - `auto` type cannot be the function argument type or return type
+
+        ```c
+        func f(auto) -> int {} //illegal
+        func f() -> auto {} //illegal
+        ```
+
+    - Initialized by array is not recommended (but available). 
+
+        ```c
+        array<int, 10> arr;
+        auto a = arr; //not recommended.
+        ```
+
+        
+
+10. **Control Grammar**
+
+       In `if, for, switch`, **condition does NOT need to be in `()`, but the body code must be in `{}`**
+
+       Declaration is allowed in for's initial statement (like c++).
+
+       We use `for condition {}` to replace `while condition {}`.  `for{}` is unconditional loop.
+
+       So `while` is not a critical word in ClearC.
+
+       **`do{} while`  is abandoned in ClearC.**
+
+    ```c
+    //legal
+    for int i = 0; i < n; i++ {
+    	sum += i;
+    }
+    
+    //illegal
+    for int i = 0; i < n; i++
+    	sum += i;
+    
+    //illegal
+    for (int i = 0; i < n; i++) {
+    	sum += i;
+    }
+    
+    //legal
+    for i < 10 {
+      sum += i;
+      i++;
+    }
+    
+    //legal
+    for {
+      if i > 5{
+        break;
+      }
+      i++;
+    }
+    ```
+
+11. naming
+
+     For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+
+     In Version1.1, we maintain three symbol tables, for function, type and varaiable. So symbols of different kinds can have the same name in the same "symbol frame".
+
+    ```c
+    // a legal program after Version1.1
     typedef Student struct{}; //type
     func Student(Student Student) -> void; //function
     
     func f() -> void{
-    	Student Student; //var
-      Student(Student);
+    Student Student; //var
+     Student(Student);
     }
-       ```
+    ```
     
+12. **OOP** (Encapsulation, Member Function)
+
+       We want to make the OOP style like golang, but a little different.
+
+      `func BaseType : funcname(args list) -> return type {funcbody}`    
+
+    ```c
+    func Student : SetScore(float score) -> void {
+    this->score = score; 
+    }
+    //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+    //this->name = name;
+    //}
+    
+    func Student : GetId() -> int {
+    return this->id;
+    }
+    //func GetId(const ptr<Student> this) -> int {
+    //return this->id;
+    //}
+    
+    Student s;
+    s.SetScore(95);
+    
+    ptr<Student> ps = addr(s);
+    int sid = ps->GetId();
+    ```
+
+      - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+
+      - The basetype must be a struct type defined by programmers.
+
+      - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+
+      - Call a member function of other types(structs) will raise semantic error.
+
+      - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+
+      - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
+
+      - There are **private/public constraint** for members variables and functions for structs. 
+
+        **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
+
+13. Supported operatiors
+
+      ClearC supports almost all operators in C.
+
+      ```c
+      "<<="													//left shift assign
+      "<<"													//left shift
+      ">>="													//right shift assign
+      ">>"													//right shift
+      "=="													//equal
+      ">="													//greater or equal than
+      ">"														//greater than
+      "<="													//less or equal than
+      "<"														//less than
+      "!="													//not equal
+      "!"														//not
+      "="														//direct assign
+      "&&"													//and
+      "&="													//binary and assign
+      "&"														//binary and
+      "||"													//or
+      "|="													//binary or assign
+      "|"														//binary or
+      "^="													//binary xor assign
+      "^"														//binary xor
+      "~"														//binary not
+      "++"													//postfix/prefix increment
+      "+="													//add assign
+      "+"														//add
+      "--"													//postfix/prefix decrement
+      "-="													//substract assign
+      "-"														//sunstract
+      "*="													//multiply assign
+      "*"														//multiply
+      "/="													//divide assign
+      "/"														//divide
+      "%="													//modulo assign
+      "%"														//modulo
+      "?:"													//ternary operator
+      ```
+
       
-    
-11. OOP (Encapsulation)
 
-      We want to make the OOP style like golang, but a little different.
+14. String (to do)
 
-     `func BaseType : funcname(args list) -> return type {funcbody}`    
+      Should we make **string** a primitive data type? Maybe not.
 
-       ```c
-        func Student : SetScore(float score) -> void {
-        	this->score = score; 
-        }
-        //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
-        	//this->name = name;
-        //}
-        
-        func Student : GetId() -> int {
-        	return this->id;
-        }
-        //func GetId(const ptr<Student> this) -> int {
-        	//return this->id;
-        //}
-        
-        Student s;
-        s.SetScore(95);
-        
-        ptr<Student> ps = addr(s);
-        int sid = ps->GetId();
-       ```
+      Array<char, len> cannot be initialize by literal string such as "hello", this is a huge problem.
 
-     - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
+15. Function Declaration (To do)
 
-     - The basetype must be a struct type defined by programmers.
+      We think function declarations is redundant and unnecessary, so we want to elimate them.
 
-     - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
+      But we do not pre-scan the AST, so it's difficult.
 
-     - Call a member function of other types(structs) will raise semantic error.
-
-     - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
-
-     - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
-
-     - There are **private/public constraint** for members variables and functions for structs. 
-
-       **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
-
-12. Supported operatiors
-
-     ClearC supports almost all operators in C.
-
-     ```c
-     "<<="													//left shift assign
-     "<<"													//left shift
-     ">>="													//right shift assign
-     ">>"													//right shift
-     "=="													//equal
-     ">="													//greater or equal than
-     ">"														//greater than
-     "<="													//less or equal than
-     "<"														//less than
-     "!="													//not equal
-     "!"														//not
-     "="														//direct assign
-     "&&"													//and
-     "&="													//binary and assign
-     "&"														//binary and
-     "||"													//or
-     "|="													//binary or assign
-     "|"														//binary or
-     "^="													//binary xor assign
-     "^"														//binary xor
-     "~"														//binary not
-     "++"													//postfix/prefix increment
-     "+="													//add assign
-     "+"														//add
-     "--"													//postfix/prefix decrement
-     "-="													//substract assign
-     "-"														//sunstract
-     "*="													//multiply assign
-     "*"														//multiply
-     "/="													//divide assign
-     "/"														//divide
-     "%="													//modulo assign
-     "%"														//modulo
-     "?:"													//ternary operator
-     ```
-
-     
-
-13. String (to do)
-
-     Should we make **string** a primitive data type? Maybe not.
-
-     Array<char, len> cannot be initialize by literal string such as "hello", this is a huge problem.
-
-14. Function Declaration (To do)
-
-     We think function declarations is redundant and unnecessary, so we want to elimate them.
-
-     But we do not pre-scan the AST, so it's difficult.
-
-     
+      
 
 ## Language Limitations
 
@@ -494,7 +543,7 @@ func main() -> int {
     array<char, 100> expr;
     scanf("%s", expr);
     c.ReadExpr(expr);
-    int result = c.Calc();
+    auto result = c.Calc();
 
     printf("%d\n", result);
     return 0;
@@ -508,7 +557,7 @@ func Calculator : Init() -> void {
 
 func Calculator : ReadExpr(const ptr<const char> expr) -> void {
     //deep copy
-    if this->expr != null {
+    if this->expr != null{
         free(this->expr);
     }
     this->expr = typecast(malloc(sizeof(char) * (strlen(expr) + 1)), ptr<char>);

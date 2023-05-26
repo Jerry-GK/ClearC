@@ -21,3 +21,5 @@
 [23-5-22] : Add public / private constraint for member functions / variables of struct.
 
 [23-5-24] : Different symbol tables for function, type and variable. Version 1.1 released.
+
+[23-5-26] : Support `auto`, Version 1.2 released.

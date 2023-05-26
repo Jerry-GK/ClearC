@@ -69,7 +69,7 @@ ast::Program *Root;
 		FUNC STRUCT TYPEDEF TYPECAST THIS CONST PTR ARRAY DPTR ADDR
 		IF ELSE FOR SWITCH CASE DEFAULT 
 		BREAK CONTINUE RETURN SIZEOF TRUE FALSE NULL_
-		BOOL SHORT INT LONG CHAR FLOAT DOUBLE VOID
+		BOOL SHORT INT LONG CHAR FLOAT DOUBLE VOID AUTO
 		
 %token<iVal> INTEGER
 %token<sVal> IDENTIFIER 
@@ -177,6 +177,7 @@ _VarType:	BuiltInType												{  $$ = $1;   }
 			| STRUCT LBRACE FieldDecls RBRACE						{  $$ = new ast::StructType($3);   }
 			| PTR LT_ VarType GT_									{  $$ = new ast::PointerType($3);   }
 			| ARRAY LT_ VarType COMMA INTEGER GT_					{  $$ = new ast::ArrayType($3,$5);   }
+			| AUTO													{  $$ = new ast::AutoType();   }
 			| IDENTIFIER											{  $$ = new ast::DefinedType(*$1);   }
 			;
 			

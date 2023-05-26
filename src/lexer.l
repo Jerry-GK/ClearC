@@ -91,6 +91,8 @@ extern "C" int yywrap() {return 1;}
 "char"													{return CHAR; }
 "float"													{return FLOAT; }
 "double"												{return DOUBLE; }
+"auto"													{return AUTO; }
+
 [ \t\n]													{ ; }
 "/*"[^*]*[*]+([^*/][^*]*[*]+)*"/"						{ ; }
 "//".*													{ ; }

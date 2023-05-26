@@ -8,7 +8,7 @@
 
 指导老师：刘忠鑫
 
-日期：2023年5月22日
+日期：2023年5月26日
 
 
 
@@ -144,6 +144,8 @@
 
     - **`union` and `enum` are temporarily abandoned in ClearC.**
 
+    
+
 6. **const** and static
 
     Usually, const means a variable cannot change its value, so it will remain the initial value forever.
@@ -204,6 +206,8 @@
 
     **`static` is abandoned in ClearC.**
 
+    
+
 7. **typedef**
 
     ClearC use `typedef name type` instead of  `typedef type name` in C.
@@ -242,17 +246,70 @@
 
     **Again, pointer cast with different base type is very dangerous and not recommended!**
 
-9. **Control Grammar**
+    
 
-    In `if, for, switch`, **condition does NOT need to be in `()`, but the body code must be in `{}`**
+9. **auto** (Version1.2)
 
-    Declaration is allowed in for's initial statement (like c++).
+    After Version1.2, ClearC supports `auto` for variable declaration.
 
-    We use `for condition {}` to replace `while condition {}`.  `for{}` is unconditional loop.
+    ```c
+    auto x = 1;
+    auto y = x;
+    auto s = stu; //stu is a Student struct type
+    ```
 
-    So `while` is not a critical word in ClearC.
+     There are some important points:
 
-    **`do{} while`  is abandoned in ClearC.**
+    - `auto` must be used for variable declaration with initialize expresion. Cannot declare an auto type variable separately.
+
+        ```c
+        auto x; //illegal
+        ```
+
+    - `const` (outer-const) will not be inherited by auto (just like C).
+
+        ```c
+        const int a = 1;
+        auto b = a; //b is not a const variable
+        b = 2; //legal
+        ```
+
+    - Inner-const will be inherited by auto
+
+        ```c
+        const int a = 1;
+        ptr<const int> p = addr(a);
+        auto pa = p; //pa is an inner-const pointer
+        dptr(pa) = 2;//illegal
+        ```
+
+    - `auto` type cannot be the function argument type or return type
+
+        ```c
+        func f(auto) -> int {} //illegal
+        func f() -> auto {} //illegal
+        ```
+
+    - Initialized by array is not recommended (but available). 
+
+        ```c
+        array<int, 10> arr;
+        auto a = arr; //not recommended.
+        ```
+
+        
+
+10. **Control Grammar**
+
+      In `if, for, switch`, **condition does NOT need to be in `()`, but the body code must be in `{}`**
+
+       Declaration is allowed in for's initial statement (like c++).
+
+       We use `for condition {}` to replace `while condition {}`.  `for{}` is unconditional loop.
+
+       So `while` is not a critical word in ClearC.
+
+       **`do{} while`  is abandoned in ClearC.**
 
     ```c
     //legal
@@ -284,107 +341,109 @@
     }
     ```
 
-10. naming
+11. naming
 
-    For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
+     For an identifier, it may be the name for a function, type or a variable, or may not be defined yet.
 
-    In Version1.1, we maintain thress symbol tables for function, type and varaiable. So symbols of different kinds can have the same name in the same "symbol frame".
+     In Version1.1, we maintain three symbol tables, for function, type and varaiable. So symbols of different kinds can have the same name in the same "symbol frame".
 
-       ```c
-    //a legal program after Version1.1
+    ```c
+    // a legal program after Version1.1
     typedef Student struct{}; //type
     func Student(Student Student) -> void; //function
     
     func f() -> void{
-    	Student Student; //var
-      Student(Student);
+    Student Student; //var
+     Student(Student);
     }
-       ```
+    ```
 
-11. OOP (Encapsulation)
+12. **OOP** (Encapsulation, Member Function)
 
-      We want to make the OOP style like golang, but a little different.
+       We want to make the OOP style like golang, but a little different.
 
-         `func BaseType : funcname(args list) -> return type {funcbody}`    
+      `func BaseType : funcname(args list) -> return type {funcbody}`    
 
-       ```c
-       func Student : SetScore(float score) -> void {
-       	this->score = score; 
-       }
-       //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
-       	//this->name = name;
-       //}
-       
-       func Student : GetId() -> int {
-       	return this->id;
-       }
-       //func GetId(const ptr<Student> this) -> int {
-       	//return this->id;
-       //}
-       
-       Student s;
-       s.SetScore(95);
-       
-       ptr<Student> ps = addr(s);
-       int sid = ps->GetId();
-       ```
+    ```c
+    func Student : SetScore(float score) -> void {
+    this->score = score; 
+    }
+    //func SetName(const ptr<Student> this, array<char, 10> name) -> void {
+    //this->name = name;
+    //}
+    
+    func Student : GetId() -> int {
+    return this->id;
+    }
+    //func GetId(const ptr<Student> this) -> int {
+    //return this->id;
+    //}
+    
+    Student s;
+    s.SetScore(95);
+    
+    ptr<Student> ps = addr(s);
+    int sid = ps->GetId();
+    ```
 
-         - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
-         
-         - The basetype must be a struct type defined by programmers.
-         
-         - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
-         
-         - Call a member function of other types(structs) will raise semantic error.
-         
-         - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
-         
-         - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
+      - The basetype of function is in fact a `const ptr<basetype>`  at the first position of the args list. It will represented by critical word `this` in funcbody.
 
-       - There are **private/public constraint** for members variables and functions for structs. 
+      - The basetype must be a struct type defined by programmers.
 
-          **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
+      - `variable.Func()`, `varptr->Func()` can call memeber function, just like C.
 
-12. Supported operatiors
+      - Call a member function of other types(structs) will raise semantic error.
+
+      - ClearC does NOT provide inheritance and polymorphism, it's OOP style is more like Go.
+
+      - **Member functions of different base types can NOT have the same name, otherwise will raise naming conflict error.**
+
+      - There are **private/public constraint** for members variables and functions for structs. 
+
+        **Functions / variables starting with uppercase English letters is public, otherwise private. Private members can only be accessed in its member function.** (like golang)
+
+13. Supported operatiors
 
       ClearC supports almost all operators in C.
 
       ```c
-     "<<="													//left shift assign
-     "<<"													//left shift
-     ">>="													//right shift assign
-     ">>"													//right shift
-     "=="													//equal
-     ">="													//greater or equal than
-     ">"														//greater than
-     "<="													//less or equal than
-     "<"														//less than
-     "!="													//not equal
-     "!"														//not
-     "="														//direct assign
-     "&&"													//and
-     "&="													//binary and assign
-     "&"														//binary and
-     "||"													//or
-     "|="													//binary or assign
-     "|"														//binary or
-     "^="													//binary xor assign
-     "^"														//binary xor
-     "~"														//binary not
-     "++"													//postfix/prefix increment
-     "+="													//add assign
-     "+"														//add
-     "--"													//postfix/prefix decrement
-     "-="													//substract assign
-     "-"														//sunstract
-     "*="													//multiply assign
-     "*"														//multiply
-     "/="													//divide assign
-     "/"														//divide
-     "%="													//modulo assign
-     "%"														//modulo
-     "?:"													//ternary operator
+    "<<="													//left shift assign
+    "<<"													//left shift
+    ">>="													//right shift assign
+    ">>"													//right shift
+    "=="													//equal
+    ">="													//greater or equal than
+    ">"														//greater than
+    "<="													//less or equal than
+    "<"														//less than
+    "!="													//not equal
+    "!"														//not
+    "="														//direct assign
+    "&&"													//and
+    "&="													//binary and assign
+    "&"														//binary and
+    "||"													//or
+    "|="													//binary or assign
+    "|"														//binary or
+    "^="													//binary xor assign
+    "^"														//binary xor
+    "~"														//binary not
+    "++"													//postfix/prefix increment
+    "+="													//add assign
+    "+"														//add
+    "--"													//postfix/prefix decrement
+    "-="													//substract assign
+    "-"														//sunstract
+    "*="													//multiply assign
+    "*"														//multiply
+    "/="													//divide assign
+    "/"														//divide
+    "%="													//modulo assign
+    "%"														//modulo
+    "?:"													//ternary operator
       ```
+
+      
 
 
 ### 1.3 语言局限性
@@ -576,33 +635,53 @@ ClearC编译器采用的是将AST转化为LLVM IR的模式。并且是一次性�
     在ClearC中，符号表以栈的形式存在（这里可以优化成二叉树那种节省空间的模式），查找符号时会进行倒推，找到最近的包含该符号的符号表。
 
     ```c++
-    class Symbol {
     public:
-        Symbol(void) : Val(NULL), Type(UNDEFINED) {}
-        Symbol(ast::MyFunction* Func) : Val(Func), Type(FUNCTION) {}
-        Symbol(ast::MyType* Ty) : Val(Ty), Type(TYPE) {}
-        Symbol(ast::MyValue* MyVal) : Val(MyVal), Type(VARIABLE) {}
-        ast::MyFunction* GetFunction(void) { return this->Type == FUNCTION ? (ast::MyFunction*)Val : NULL; }
-        ast::MyType* GetType(void) { return this->Type == TYPE ? (ast::MyType*)Val : NULL; }
-        ast::MyValue* GetVariable(void) { return this->Type == VARIABLE ? (ast::MyValue*)Val : NULL; }
+        class Symbol {
+        public:
+            Symbol(void) : Val(NULL), Type(UNDEFINED) {}
+            Symbol(ast::MyFunction* Func) : Val(Func), Type(FUNCTION) {}
+            Symbol(ast::MyType* Ty) : Val(Ty), Type(TYPE) {}
+            Symbol(ast::MyValue* MyVal) : Val(MyVal), Type(VARIABLE) {}
+            ast::MyFunction* GetFunction(void) { return this->Type == FUNCTION ? (ast::MyFunction*)Val : NULL; }
+            ast::MyType* GetType(void) { return this->Type == TYPE ? (ast::MyType*)Val : NULL; }
+            ast::MyValue* GetVariable(void) { return this->Type == VARIABLE ? (ast::MyValue*)Val : NULL; }
     
-    private:
-        void* Val;
-        enum {
-            FUNCTION,
-            TYPE,
-            VARIABLE,
-            UNDEFINED
-        } Type;
-    };
+        private:
+            void* Val;
+            enum {
+                FUNCTION,
+                TYPE,
+                VARIABLE,
+                UNDEFINED
+            } Type;
+        };
+        using SymbolTable = std::map<std::string, Symbol>;
     
-    //...
-    std::vector<SymbolTable*> SymbolTableStack;			        //Symbol table
+        class SymbolStackFrame {
+        public:
+            SymbolStackFrame(void) {
+                FuncSymbolTable = new SymbolTable();
+                TypeSymbolTable = new SymbolTable();
+                VarSymbolTable = new SymbolTable();
+            }
+            ~SymbolStackFrame(void) {
+                delete FuncSymbolTable;
+                delete TypeSymbolTable;
+                delete VarSymbolTable;
+            }
+    
+            SymbolTable* FuncSymbolTable;
+            SymbolTable* TypeSymbolTable;
+            SymbolTable* VarSymbolTable;
+        };
+    		
+    	  //...
+        std::vector<SymbolStackFrame*> SymbolTableStack;			//Symbol table
     ```
 
-    ClearC的符号表中，函数符号、类型符号、变量符号是通用的。这意味着同一符号空间内函数、类型、变量之间也不能跨类别重名。这样设计除了简单外，还有就是为了遵循ClearC的设计宗旨：简洁明了。我们认为函数、类型、变量之间的可重名，在带来方便的同时也带来一些困惑和不“clear”的情况，因此我们抛弃了分开设计符号表的模式。
-
     符号中`void* Val`可以被解释成多种类型，由内部的enum类型变量Type决定。
+
+    在Version1.1中，将函数、类型、变量共享的符号表拆分成了三个，符号栈中的元素变为栈帧stackframe，每个栈帧中都维护了函数、类型、变量三张符号表，这样可以减少命名冲突。
 
     
 

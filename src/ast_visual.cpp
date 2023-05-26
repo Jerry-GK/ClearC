@@ -158,6 +158,11 @@ string StructType::nodeJson() {
     return getJson("StructType", children);
 }
 
+string AutoType::nodeJson() {
+    return getJson("AutoType", getJson("auto"));
+}
+
+
 string FieldDecl::nodeJson() {
     vector<string> children;
     children.push_back(_VarType->nodeJson());

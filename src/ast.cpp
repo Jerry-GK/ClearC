@@ -35,6 +35,10 @@ namespace ast {
 
         bool isVoidArgs = false;
         for (auto ArgType : *(this->_ArgList)) {
+            if (ArgType->_VarType->_VarTy == VARTYPE_AUTO) {
+                throw std::logic_error("Declare function \"" + this->_FuncName + "\" using auto type argument, which is not allowed");
+                return MyValue();
+            }
             llvm::Type* LLVMType = ArgType->_VarType->GetLLVMType(Gen);
             if (!LLVMType) {
                 throw std::logic_error("Declare function \"" + this->_FuncName + "\" using unknown arg type(s)");
@@ -59,6 +63,11 @@ namespace ast {
             ArgTypes.pop_back();
 
         //Get return type
+        if (this->_RetType->_VarTy == VARTYPE_AUTO)
+        {
+            throw std::logic_error("Declare function \"" + this->_FuncName + "\" using auto type return value, which is not allowed");
+            return MyValue();
+        }
         llvm::Type* RetType = this->_RetType->GetLLVMType(Gen);
         if (RetType->isArrayTy()) {
             throw std::logic_error("Declare function \"" + this->_FuncName + "\" which returns array type, which is not allowed");
@@ -99,11 +108,11 @@ namespace ast {
                 bool TypeSame = prevArgType->_LLVMType->getTypeID() == curArgType->_LLVMType->getTypeID();
                 bool IsConstSame = prevArgType->_isConst == curArgType->_isConst;
                 bool prevIsInnerConst = false;
-                if (prevArgType->isPointerType()) {
+                if (prevArgType->_VarTy == VARTYPE_POINTER) {
                     prevIsInnerConst = ((PointerType*)prevArgType)->isInnerConst();
                 }
                 bool curIsInnerConst = false;
-                if (curArgType->isPointerType()) {
+                if (curArgType->_VarTy == VARTYPE_POINTER) {
                     curIsInnerConst = ((PointerType*)curArgType)->isInnerConst();
                 }
                 bool IsInnerConstSame = prevIsInnerConst == curIsInnerConst;
@@ -160,11 +169,11 @@ namespace ast {
             for (; ArgIter < Func->arg_end(); ArgIter++, Index++) {
                 auto ArgVarType = this->_ArgList->at(Index)->_VarType;
                 bool isInnerConst = false;
-                if (ArgVarType->isPointerType()) {
+                if (ArgVarType->_VarTy == VARTYPE_POINTER) {
                     isInnerConst = ((PointerType*)ArgVarType)->isInnerConst();
                 }
                 auto Alloca = CreateEntryBlockAlloca(Func, this->_ArgList->at(Index)->_Name, ArgIter->getType());
-                auto MyVal = new MyValue(Alloca, "", ArgVarType->_isConst || ArgVarType->isArrayType(), isInnerConst);
+                auto MyVal = new MyValue(Alloca, "", ArgVarType->_isConst || ArgVarType->_VarTy == VARTYPE_ARRAY, isInnerConst);
                 GlobalBuilder.CreateStore(ArgIter, Alloca);
                 if (!Gen.AddVariable(this->_ArgList->at(Index)->_Name, MyVal))
                 {
@@ -207,25 +216,42 @@ namespace ast {
     MyValue VarDecl::codegen(Generator& Gen) {
         //Get the llvm type
         llvm::Type* VarType = this->_VarType->GetLLVMType(Gen);
-        if (VarType == NULL) {
+        if (this->_VarType->_VarTy != VARTYPE_AUTO && VarType == NULL) {
             throw std::logic_error("Define variable with unknown type");
             return MyValue();
         }
-        if (VarType->isVoidTy()) {
+        if (VarType != NULL && VarType->isVoidTy()) {
             throw std::logic_error("Cannot define \"void\" variable");
             return MyValue();
         }
 
+        bool autoDetermined = false;
         //Create variables one by one.
         for (auto& NewVar : *(this->_VarList)) {
+            MyValue InitialMyVal;
+            bool isInnerConst = false;
+            if (NewVar->_InitialExpr) {
+                InitialMyVal = NewVar->_InitialExpr->codegen(Gen);
+            }
+            if (this->_VarType->_VarTy == VARTYPE_AUTO) {
+                if (!NewVar->_InitialExpr) {
+                    throw std::logic_error("Auto type variable \"" + NewVar->_Name + "\" must be initialized");
+                    return MyValue();
+                }
+                if (!autoDetermined) {
+                    //this->_VarType->_isConst = InitialMyVal.IsConst; //not inherit const
+                    isInnerConst = InitialMyVal.IsInnerConstPointer; //but inherit inner-const
+                    VarType = InitialMyVal.Value->getType();
+                    autoDetermined = true;
+                }
+            }
             if (Gen.GetCurFunction()) {
                 //Create an alloca.
-                bool isInnerConst = false;
-                if (this->_VarType->isPointerType()) {
+                if (this->_VarType->_VarTy == VARTYPE_POINTER) {
                     isInnerConst = ((PointerType*)this->_VarType)->isInnerConst();
                 }
                 auto Alloca = CreateEntryBlockAlloca(Gen.GetCurFunction()->LLVMFunc, NewVar->_Name, VarType);
-                auto MyVal = new MyValue(Alloca, "", this->_VarType->_isConst || this->_VarType->isArrayType(), isInnerConst);
+                auto MyVal = new MyValue(Alloca, "", this->_VarType->_isConst || this->_VarType->_VarTy == VARTYPE_ARRAY, isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, MyVal)) {
                     throw std::logic_error("Naming conflict or redefinition for local variable \"" + NewVar->_Name + "\"");
                     Alloca->eraseFromParent();
@@ -239,7 +265,6 @@ namespace ast {
                         return MyValue();
                     }
                     llvm::Value* Initializer = NULL;
-                    MyValue InitialMyVal = NewVar->_InitialExpr->codegen(Gen);
                     if (InitialMyVal.IsInnerConstPointer && !isInnerConst) {
                         throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer \"" + NewVar->_Name + "\"");
                         return MyValue();
@@ -254,8 +279,7 @@ namespace ast {
             }
             else {
                 //create a global variable.
-                bool isInnerConst = false;
-                if (this->_VarType->isPointerType()) {
+                if (this->_VarType->_VarTy == VARTYPE_POINTER) {
                     isInnerConst = ((PointerType*)this->_VarType)->isInnerConst();
                 }
                 llvm::Constant* Initializer = NULL;
@@ -266,7 +290,6 @@ namespace ast {
                     }
                     //Global variable must be initialized by a constant.
 
-                    MyValue InitialMyVal = NewVar->_InitialExpr->codegen(Gen);
                     if (InitialMyVal.IsInnerConstPointer && !isInnerConst) {
                         throw std::logic_error("Inner-const pointer cannot initialize a non-inner-const pointer \"" + NewVar->_Name + "\"");
                         return MyValue();
@@ -303,7 +326,7 @@ namespace ast {
                     Initializer,
                     NewVar->_Name
                 );
-                auto MyVal = new MyValue(Alloca, "", this->_VarType->_isConst || this->_VarType->isArrayType(), isInnerConst);
+                auto MyVal = new MyValue(Alloca, "", this->_VarType->_isConst || this->_VarType->_VarTy == VARTYPE_ARRAY, isInnerConst);
                 if (!Gen.AddVariable(NewVar->_Name, MyVal)) {
                     throw std::logic_error("Naming conflict or redefinition for global variable \"" + NewVar->_Name + "\"");
                     Alloca->eraseFromParent();
@@ -318,7 +341,7 @@ namespace ast {
     //Type declaration
     MyValue TypeDecl::codegen(Generator& Gen) {
         llvm::Type* LLVMType;
-        if (this->_VarType->isStructType())
+        if (this->_VarType->_VarTy == VARTYPE_STRUCT)
             LLVMType = ((ast::StructType*)this->_VarType)->GenerateStructTypeHead(Gen, this->_Alias);
         else
             LLVMType = this->_VarType->GetLLVMType(Gen);
@@ -328,14 +351,14 @@ namespace ast {
         }
 
         FieldDecls* Fields = NULL;
-        if (this->_VarType->isStructType())
+        if (this->_VarType->_VarTy == VARTYPE_STRUCT)
             Fields = ((ast::StructType*)this->_VarType)->_StructBody;
         MyType* MyTy = new MyType(LLVMType, Fields);
         if (!Gen.AddType(this->_Alias, MyTy)) {
             throw std::logic_error("Naming conflict or redefinition for type \"" + this->_Alias + "\"");
             return MyValue();
         }
-        if (this->_VarType->isStructType())
+        if (this->_VarType->_VarTy == VARTYPE_STRUCT)
             ((ast::StructType*)this->_VarType)->GenerateStructTypeBody(Gen);
         return MyValue();
     }
@@ -458,17 +481,13 @@ namespace ast {
 
         GlobalBuilder.SetInsertPoint(ThenBB);
         if (this->_Then) {
-            Gen.PushSymbolTable();
             this->_Then->codegen(Gen);
-            Gen.PopSymbolTable();
         }
         TerminateBlockByBr(MergeBB);
         CurrentFunc->getBasicBlockList().push_back(ElseBB);
         GlobalBuilder.SetInsertPoint(ElseBB);
         if (this->_Else) {
-            Gen.PushSymbolTable();
             this->_Else->codegen(Gen);
-            Gen.PopSymbolTable();
         }
         TerminateBlockByBr(MergeBB);
         if (MergeBB->hasNPredecessorsOrMore(1)) {
@@ -509,9 +528,7 @@ namespace ast {
         GlobalBuilder.SetInsertPoint(ForLoopBB);
         if (this->_LoopBody) {
             Gen.EnterLoop(ForTailBB, ForEndBB);
-            Gen.PushSymbolTable();
             this->_LoopBody->codegen(Gen);
-            Gen.PopSymbolTable();
             Gen.LeaveLoop();
         }
 
@@ -626,7 +643,7 @@ namespace ast {
             auto RetLLVMType = Func->getReturnType();
 
             if (MyVal.IsInnerConstPointer &&
-                !(RetType->isPointerType() && ((PointerType*)(RetType))->isInnerConst())) {
+                !(RetType->_VarTy == VARTYPE_POINTER && ((PointerType*)(RetType))->isInnerConst())) {
                 throw std::logic_error("Cannot return an inner-const pointer as non-inner-const pointer type");
                 return MyValue();
             }
@@ -762,7 +779,7 @@ namespace ast {
             MyValue Arg = this->_ArgList->at(Index)->codegen(Gen);
             auto ArgType = Args->at(Index)->_VarType;
 
-            if (Arg.IsInnerConstPointer && ArgType->isPointerType() && !((PointerType*)ArgType)->isInnerConst()) {
+            if (Arg.IsInnerConstPointer && ArgType->_VarTy == VARTYPE_POINTER && !((PointerType*)ArgType)->isInnerConst()) {
                 throw std::invalid_argument("Cannot pass an inner-const pointer to a non-inner-const pointer while calling function \"" + this->_FuncName + "\"");
                 return MyValue();
             }
@@ -786,7 +803,7 @@ namespace ast {
         //Create function call
         auto RetType = MyFunc->RetType;
         bool isInnerConst = false;
-        if (RetType->isPointerType()) {
+        if (RetType->_VarTy == VARTYPE_POINTER) {
             isInnerConst = ((PointerType*)RetType)->isInnerConst();
         }
         return MyValue(GlobalBuilder.CreateCall(Func, ArgList), "", RetType->_isConst, isInnerConst);
@@ -833,7 +850,7 @@ namespace ast {
             auto memType = StructType->_StructBody->at(MemIndex)->_VarType;
             bool isConst = memType->_isConst || StructPtr.IsInnerConstPointer;
             bool isInnerConst = false;
-            if (memType->isPointerType()) {
+            if (memType->_VarTy == VARTYPE_POINTER) {
                 isInnerConst = ((PointerType*)memType)->isInnerConst();
             }
             return MyValue(GlobalBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices)
@@ -878,7 +895,7 @@ namespace ast {
             auto memType = StructType->_StructBody->at(MemIndex)->_VarType;
             bool isConst = memType->_isConst || StructPtr.IsInnerConstPointer;
             bool isInnerConst = false;
-            if (memType->isPointerType()) {
+            if (memType->_VarTy == VARTYPE_POINTER) {
                 isInnerConst = ((PointerType*)memType)->isInnerConst();
             }
             return MyValue(GlobalBuilder.CreateGEP(StructPtr.Value->getType()->getNonOpaquePointerElementType(), StructPtr.Value, Indices)
@@ -924,7 +941,7 @@ namespace ast {
     MyValue TypeCast::codegen(Generator& Gen) {
         MyValue MyVal = this->_Operand->codegen(Gen);
         if (MyVal.IsInnerConstPointer
-            && !(this->_VarType->isPointerType() && ((PointerType*)(this->_VarType))->isInnerConst())) {
+            && !(this->_VarType->_VarTy == VARTYPE_POINTER && ((PointerType*)(this->_VarType))->isInnerConst())) {
             throw std::logic_error("Cannot type cast an inner-const pointer to a non-inner-const pointer");
             return MyValue();
         }

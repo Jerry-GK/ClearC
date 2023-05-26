@@ -136,8 +136,8 @@ public:
             UNDEFINED
         } Type;
     };
-    using StructTable = std::map<llvm::StructType*, ast::StructType*>;
     using SymbolTable = std::map<std::string, Symbol>;
+    using StructTable = std::map<llvm::StructType*, ast::StructType*>;
 
     class SymbolStackFrame {
     public:

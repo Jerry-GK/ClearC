@@ -9,7 +9,7 @@ using namespace std;
 
 extern int yyparse();
 extern ast::Program* Root;
-string VersionStr = "1.1";
+string VersionStr = "1.2";
 
 //program entry
 int main(int argc, const char* argv[]) {
