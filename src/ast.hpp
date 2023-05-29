@@ -21,7 +21,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Verifier.h>
 
-#include "../include/util.h"
+#include "include/util.h"
 
 class Generator;
 

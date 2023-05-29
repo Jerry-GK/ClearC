@@ -609,7 +609,7 @@ char *yytext;
 #include <string>
 #include "ast.hpp"
 #include "parser.hpp"
-#include "../include/util.h"
+#include "include/util.h"
 
 extern "C" int yywrap() {return 1;}
 

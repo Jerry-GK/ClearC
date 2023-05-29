@@ -1,4 +1,4 @@
-#include "../include/util.h"
+#include "include/util.h"
 
 bool IsCapital(char c) {
     return 'A' <= c && c <= 'Z';

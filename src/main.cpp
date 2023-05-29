@@ -2,8 +2,8 @@
 #include <string>
 #include "ast.hpp"
 #include "generator.hpp"
-#include "../include/util.h"
-#include "../include/command.h"
+#include "include/util.h"
+#include "include/command.h"
 
 using namespace std;
 

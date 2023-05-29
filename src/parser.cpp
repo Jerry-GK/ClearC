@@ -251,7 +251,7 @@
 #line 1 "Parser.y"
 
 #include "ast.hpp" 
-#include "../include/util.h"
+#include "include/util.h"
 #include <string>
 #include <iostream>
 
